@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IskBattle.Api/IskBattle.Api.csproj" />
+    <Project Path="src/IskBattle.Domain/IskBattle.Domain.csproj" />
+    <Project Path="src/IskBattle.Functions/IskBattle.Functions.csproj" />
+    <Project Path="src/IskBattle.Infrastructure/IskBattle.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IskBattle.Api.Tests/IskBattle.Api.Tests.csproj" />
+    <Project Path="tests/IskBattle.Domain.Tests/IskBattle.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

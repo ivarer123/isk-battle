@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore IskBattle.slnx
+
+      - name: Build
+        run: dotnet build IskBattle.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution IskBattle.slnx -c Release --no-build
+
+      # StandingsCalculator must keep 100% branch coverage (ARCHITECTURE.md §5).
+      - name: Standings coverage gate
+        run: >
+          dotnet test --project tests/IskBattle.Domain.Tests -c Release --no-build
+          --coverlet
+          --coverlet-include "[IskBattle.Domain]IskBattle.Domain.Standings.*"
+          --coverlet-threshold 100
+          --coverlet-threshold-type branch

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Rules live here. References nothing outside the BCL. -->
+
+</Project>

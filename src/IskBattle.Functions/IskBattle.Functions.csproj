@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Placeholder. Becomes an Azure Functions (isolated) app in milestone 6. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IskBattle.Infrastructure\IskBattle.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
