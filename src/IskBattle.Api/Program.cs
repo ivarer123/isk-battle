@@ -1,6 +1,64 @@
-// Placeholder. Endpoints arrive in milestone 4 (API core).
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using IskBattle.Api.Auth;
+using IskBattle.Api.Endpoints;
+using IskBattle.Infrastructure;
+using IskBattle.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Microsoft Entra External ID (email one-time passcode). Keep raw claim names ("sub", "email").
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        builder.Configuration.Bind("Auth", o);
+        o.MapInboundClaims = false;
+    });
+builder.Services.AddAuthorization();
+
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    foreach (var policy in new[] { CheckInEndpoints.RateLimitPolicy, LeagueEndpoints.JoinRateLimitPolicy })
+    {
+        o.AddPolicy(policy, http => RateLimitPartition.GetFixedWindowLimiter(
+            http.User.FindFirst("sub")?.Value ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    }
+});
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<IskBattleDbContext>().Database.MigrateAsync();
+}
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
+
+app.MapOpenApi();
+
+var api = app.MapGroup("").RequireAuthorization().AddEndpointFilter(CurrentUser.UpsertFilter);
+api.MapMeEndpoints();
+api.MapCheckInEndpoints();
+api.MapLeagueEndpoints();
+
 app.Run();
 
 public partial class Program;

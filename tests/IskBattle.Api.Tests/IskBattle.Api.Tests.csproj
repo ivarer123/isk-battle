@@ -3,9 +3,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- HTTP-heavy integration tests: per-call cancellation tokens add noise without value. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>

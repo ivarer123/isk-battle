@@ -77,6 +77,9 @@ namespace IskBattle.Infrastructure.Persistence.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
+                    b.Property<int?>("NextCadenceSeason")
+                        .HasColumnType("int");
+
                     b.Property<string>("NextSeasonCadence")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");

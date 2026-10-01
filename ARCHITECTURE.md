@@ -86,6 +86,7 @@ public class League
     public string Name { get; set; } = "";
     public Cadence Cadence { get; set; }
     public Cadence? NextSeasonCadence { get; set; }
+    public int? NextCadenceSeason { get; set; }    // season the queued cadence applies from (no rollover job)
     public LeagueTier Tier { get; set; }
     public string InviteCode { get; set; } = "";   // 8 chars, unambiguous alphabet, unique
     public DateTimeOffset CreatedAt { get; set; }
@@ -181,7 +182,8 @@ All endpoints require a bearer token except the webhook and unsubscribe. On firs
 | PATCH | `/leagues/{id}` | Owner/co-host: `name`, `nextSeasonCadence` |
 | DELETE | `/leagues/{id}` | Owner only; soft delete |
 | POST | `/leagues/join` | `{ inviteCode }` → `Active` or `Pending`; notifies hosts if pending |
-| DELETE | `/leagues/{id}/members/{userId}` | Host removes member, or self-leave |
+| POST | `/leagues/{id}/invite-code` | Host regenerates the invite code |
+| DELETE | `/leagues/{id}/members/{userId}` | Host removes a Member (not co-hosts/owner), or self-leave; frees a slot for the first Pending |
 | GET | `/leagues/{id}/standings?period=week&date=2026-09-21` | Members only |
 | POST | `/leagues/{id}/checkout` | `{ targetTier, immediateDeliveryConsent: true }` → `{ checkoutUrl }` |
 | POST | `/webhooks/stripe` | Signature-verified, idempotent |

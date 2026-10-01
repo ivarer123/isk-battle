@@ -6,6 +6,7 @@ public class League
     public string Name { get; set; } = "";
     public Cadence Cadence { get; set; }
     public Cadence? NextSeasonCadence { get; set; }
+    public int? NextCadenceSeason { get; set; }    // season in which NextSeasonCadence takes effect
     public LeagueTier Tier { get; set; }
     public string InviteCode { get; set; } = "";   // 8 chars, unambiguous alphabet, unique
     public DateTimeOffset CreatedAt { get; set; }
