@@ -1,2 +1,11 @@
-// Placeholder. Timer triggers arrive in milestone 6 (email + reminders).
-return 0;
+using IskBattle.Infrastructure;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Builder;
+using Microsoft.Extensions.Hosting;
+
+var builder = FunctionsApplication.CreateBuilder(args);
+
+builder.Services.ConfigureFunctionsApplicationInsights();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Build().Run();

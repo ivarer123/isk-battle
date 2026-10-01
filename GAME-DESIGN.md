@@ -144,6 +144,9 @@ Reminders are per **player**, based on the most frequent cadence among their act
 
 Other emails: join pending (to owner and co-hosts), member activated (to the joiner). Every email has a one-click unsubscribe link. Players can turn reminders off in settings. Payment receipts are sent by Stripe.
 
+- One email switch per player covers all ISK Battle email; the unsubscribe link turns it off. Hosts who opted out still see pending members in the app.
+- Each reminder window is open from its reminder time until the window ends (e.g. Friday 18:00 – Sunday for Weekly), so a missed run catches up once.
+
 ## 10. Explicit non-goals (v1)
 
 - No prizes, prize pools or entry fees — ever. Winners get the title only.
@@ -170,3 +173,4 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-09-21 | Payments included in v1 |
 | 2026-10-01 | §6 clarifications: periods clipped to season, Dag spans weekends, Ny before Pausad, 2-dp ties with competition ranking, typo guard within season |
 | 2026-10-01 | Earliest co-host = first to pay; Pending members may pay and are activated as co-host |
+| 2026-10-01 | One email switch for all email (unsubscribe turns it off); reminders catch up within their window |

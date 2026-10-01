@@ -3,8 +3,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using IskBattle.Domain.Entities;
-using IskBattle.Infrastructure.Notifications;
+using IskBattle.Infrastructure.Email;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -22,19 +21,25 @@ public sealed class ApiFactory(SqlServerFixture sql) : WebApplicationFactory<Pro
         Converters = { new JsonStringEnumConverter() },
     };
 
+    public const string TestUnsubscribeKey = "test-unsubscribe-key-0123456789abcdef";
+
     /// <summary>Monday 21 September 2026, 12:00 in Stockholm.</summary>
     public TestClock Time { get; } = new(new DateTimeOffset(2026, 9, 21, 10, 0, 0, TimeSpan.Zero));
 
-    public RecordingNotifications Notifications { get; } = new();
+    public RecordingEmailSender Emails { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Sql", sql.ConnectionString);
+        builder.UseSetting("Email:Provider", "Console");
+        builder.UseSetting("Email:UnsubscribeKey", TestUnsubscribeKey);
+        builder.UseSetting("Links:AppBaseUrl", "https://app.test");
+        builder.UseSetting("Links:ApiBaseUrl", "https://api.test");
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<TimeProvider>(Time);
-            services.AddSingleton<INotificationService>(Notifications);
+            services.AddSingleton<IEmailSender>(Emails);
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
             services.PostConfigure<AuthenticationOptions>(o =>
@@ -79,20 +84,22 @@ internal sealed class TestAuthHandler(
     }
 }
 
-public sealed class RecordingNotifications : INotificationService
+public sealed class RecordingEmailSender : IEmailSender
 {
-    public List<(Guid LeagueId, Guid JoinerId)> JoinPending { get; } = [];
-    public List<(Guid LeagueId, Guid UserId)> Activated { get; } = [];
+    private readonly List<EmailMessage> _sent = [];
 
-    public Task JoinPendingAsync(League league, User joiner, CancellationToken cancellationToken = default)
+    public IReadOnlyList<EmailMessage> Sent
     {
-        lock (JoinPending) JoinPending.Add((league.Id, joiner.Id));
-        return Task.CompletedTask;
+        get { lock (_sent) return [.. _sent]; }
     }
 
-    public Task MembersActivatedAsync(League league, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    public bool Fail { get; set; }
+
+    public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
-        lock (Activated) Activated.AddRange(userIds.Select(id => (league.Id, id)));
+        if (Fail)
+            throw new InvalidOperationException("Simulated delivery failure.");
+        lock (_sent) _sent.Add(message);
         return Task.CompletedTask;
     }
 }

@@ -81,7 +81,9 @@ public class LeagueTests(SqlServerFixture sql) : ApiTestBase(sql)
         var seenByOwner = await anna.GetAsync<LeagueDetail>($"/leagues/{league.Id}");
         Assert.Equal(11, seenByOwner.Members.Count);
         Assert.Equal(MemberStatus.Pending, seenByOwner.Members[^1].Status);
-        Assert.Single(Factory.Notifications.JoinPending, n => n.LeagueId == league.Id);
+        var email = Assert.Single(Factory.Emails.Sent, e => e.Subject == "Elva vill gå med i Kompisligan");
+        Assert.Equal((await anna.GetAsync<MeResponse>("/me")).Email, email.To);
+        Assert.Contains($"https://app.test/liga/{league.Id}/uppgradera", email.Text);
     }
 
     [Fact]
@@ -102,7 +104,7 @@ public class LeagueTests(SqlServerFixture sql) : ApiTestBase(sql)
         Assert.Equal(MemberStatus.Active, (await first.GetAsync<LeagueDetail>($"/leagues/{league.Id}")).MyStatus);
         Assert.Equal(MemberStatus.Pending, (await second.GetAsync<LeagueDetail>($"/leagues/{league.Id}")).MyStatus);
         Assert.Equal(HttpStatusCode.NotFound, (await players[0].GetAsync($"/leagues/{league.Id}")).StatusCode);
-        Assert.Single(Factory.Notifications.Activated, n => n.LeagueId == league.Id);
+        Assert.Single(Factory.Emails.Sent, e => e.Subject == "Du är med i Kompisligan!");
     }
 
     [Fact]

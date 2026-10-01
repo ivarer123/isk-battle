@@ -122,8 +122,8 @@
 
   "profile.title": "Profil",
   "profile.displayName": "Visningsnamn",
-  "profile.reminders": "Påminnelser via e-post",
-  "profile.remindersHint": "Vi påminner dig när det är dags att uppdatera, baserat på dina ligor.",
+  "profile.reminders": "E-post från ISK Battle",
+  "profile.remindersHint": "Påminnelser när det är dags att uppdatera, och besked om dina ligor (t.ex. när någon vill gå med).",
   "profile.signOut": "Logga ut",
   "profile.delete": "Radera konto",
   "profile.deleteConfirm": "Ditt konto, dina siffror och dina medlemskap raderas. Det går inte att ångra.",

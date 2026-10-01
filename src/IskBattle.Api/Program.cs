@@ -66,6 +66,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapOpenApi();
+app.MapUnsubscribeEndpoints();
 
 var api = app.MapGroup("").RequireAuthorization().AddEndpointFilter(CurrentUser.UpsertFilter);
 api.MapMeEndpoints();
