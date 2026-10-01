@@ -100,6 +100,7 @@ public class LeagueMember
     public MemberRole Role { get; set; }
     public MemberStatus Status { get; set; }
     public DateTimeOffset JoinedAt { get; set; }   // FIFO order for pending activation
+    public DateTimeOffset? PromotedAt { get; set; } // became co-host; earliest inherits ownership
 }
 
 public class Purchase

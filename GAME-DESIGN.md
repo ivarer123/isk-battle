@@ -106,7 +106,7 @@ There are no streaks and no penalties in v1. A player on holiday simply appears 
 
 Owner and co-hosts can: rename the league, queue a cadence change for next season, remove members, and share the invite link.
 
-- If the owner leaves, ownership passes to the earliest co-host; if there is none, to the longest-standing member.
+- If the owner leaves, ownership passes to the earliest co-host (the one who became co-host first, i.e. paid first); if there is none, to the longest-standing active member.
 - If the last member leaves, the league is soft-deleted.
 
 ### Capacity and joining
@@ -127,7 +127,7 @@ Premium is a **permanent, one-time** purchase attached to the **league**, not th
 | Premium 250 | 250 | 399 |
 
 - Upgrades cost the **difference** between tiers (e.g. 50 → 100 costs 100 kr).
-- Any league member may pay. The payer becomes a co-host.
+- Any league member may pay, including a Pending member. The payer becomes a co-host; a Pending payer is activated first.
 - Prices are treated as moms-inclusive. The business is below the 120 000 kr moms threshold at launch; if it is crossed, prices stay the same and net revenue drops accordingly.
 - Before checkout the buyer must tick: *"Jag vill att uppgraderingen aktiveras direkt och förstår att ångerrätten därmed upphör."* The consent timestamp is stored with the purchase.
 - Deleting a paid league does not trigger a refund; the UI warns about this.
@@ -169,3 +169,4 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-09-21 | Missed check-ins = "Pausad", no penalty |
 | 2026-09-21 | Payments included in v1 |
 | 2026-10-01 | §6 clarifications: periods clipped to season, Dag spans weekends, Ny before Pausad, 2-dp ties with competition ranking, typo guard within season |
+| 2026-10-01 | Earliest co-host = first to pay; Pending members may pay and are activated as co-host |
