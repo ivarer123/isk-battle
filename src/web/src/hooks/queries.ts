@@ -129,6 +129,37 @@ export function useJoinLeague() {
   });
 }
 
+/** Starts Stripe Checkout and returns the hosted payment page URL. */
+export function useCheckout(id: string) {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (targetTier: LeagueTier) =>
+      unwrap(api.POST('/leagues/{id}/checkout', {
+        params: { path: { id } },
+        body: { targetTier, immediateDeliveryConsent: true },
+      })),
+  });
+}
+
+/**
+ * After returning from Stripe the webhook may still be on its way: refresh the league every 2 s for 30 s
+ * so the new tier and activated members show up without a reload.
+ */
+export function useRefreshAfterPayment(id: string, enabled: boolean) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: [...keys.league(id), 'after-payment'],
+    queryFn: async () => {
+      const league = await unwrap(api.GET('/leagues/{id}', { params: { path: { id } } }));
+      queryClient.setQueryData(keys.league(id), league);
+      return league;
+    },
+    enabled,
+    refetchInterval: (query) => (query.state.dataUpdateCount < 15 ? 2000 : false),
+  });
+}
+
 export function useStandings(id: string, period: PeriodType, date: string | undefined, enabled = true) {
   const api = useApi();
   return useQuery({

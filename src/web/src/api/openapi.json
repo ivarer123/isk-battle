@@ -475,6 +475,66 @@
           }
         }
       }
+    },
+    "/leagues/{id}/checkout": {
+      "post": {
+        "tags": [
+          "PaymentEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -517,6 +577,17 @@
           "ytdPercent": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "CheckoutResponse": {
+        "required": [
+          "checkoutUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string"
           }
         }
       },
@@ -945,6 +1016,21 @@
           "Pausad"
         ]
       },
+      "StartCheckoutRequest": {
+        "required": [
+          "targetTier",
+          "immediateDeliveryConsent"
+        ],
+        "type": "object",
+        "properties": {
+          "targetTier": {
+            "$ref": "#/components/schemas/LeagueTier"
+          },
+          "immediateDeliveryConsent": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateLeagueRequest": {
         "required": [
           "name",
@@ -1023,6 +1109,9 @@
     },
     {
       "name": "LeagueEndpoints"
+    },
+    {
+      "name": "PaymentEndpoints"
     }
   ]
 }

@@ -1,21 +1,25 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import type { LeagueDetail, PeriodType, Standings } from '../api/client';
 import { StandingsTable } from '../components/StandingsTable';
 import { ErrorView, Loading } from '../components/Status';
-import { useLeague, useStandings } from '../hooks/queries';
+import { useLeague, useRefreshAfterPayment, useStandings } from '../hooks/queries';
 import { t } from '../i18n/t';
 import { addDays, formatDayMonth, formatMonthYear } from '../lib/dates';
 
 /** Screen 5: period tabs + standings. */
 export function LeagueView() {
   const { id = '' } = useParams();
+  const [search] = useSearchParams();
+  const returnedFromPayment = search.get('betalning') === 'klar';
   const league = useLeague(id);
+  useRefreshAfterPayment(id, returnedFromPayment);
 
   if (league.isPending) return <Loading />;
   if (league.isError) return <ErrorView error={league.error} onRetry={() => void league.refetch()} />;
-  if (league.data.myStatus === 'Pending') return <PendingView league={league.data} />;
-  return <ActiveLeague league={league.data} />;
+  const banner = returnedFromPayment && <p className="card checkin">{t('upgrade.success')}</p>;
+  if (league.data.myStatus === 'Pending') return <>{banner}<PendingView league={league.data} /></>;
+  return <>{banner}<ActiveLeague league={league.data} /></>;
 }
 
 function PendingView({ league }: { league: LeagueDetail }) {

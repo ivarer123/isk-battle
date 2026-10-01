@@ -1,5 +1,6 @@
 using IskBattle.Infrastructure.Email;
 using IskBattle.Infrastructure.Notifications;
+using IskBattle.Infrastructure.Payments;
 using IskBattle.Infrastructure.Persistence;
 using IskBattle.Infrastructure.Reminders;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,9 @@ public static class DependencyInjection
             services.AddSingleton<IEmailSender, ConsoleEmailSender>();
 
         services.AddScoped<INotificationService, EmailNotificationService>();
+
+        services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.Section));
+        services.AddSingleton<IPaymentGateway, StripePaymentGateway>();
         services.AddScoped<ReminderJob>();
         return services;
     }

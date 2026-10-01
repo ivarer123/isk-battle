@@ -198,7 +198,7 @@ Flow:
 1. Frontend shows upgrade options with prices from `GET /leagues/{id}` (server is the source of truth for prices).
 2. User ticks the ångerrätt consent checkbox (required) and clicks pay.
 3. `POST /leagues/{id}/checkout` creates a `Purchase` (`Created`) and a Stripe Checkout Session:
-   - `mode: payment`, `currency: sek`, `payment_method_types: [card, swish]`
+   - `mode: payment`, `currency: sek`, `allowed_payment_method_types: [card, swish]` (Stripe.net 53 replaces `payment_method_types`; both methods must be enabled in the Dashboard)
    - `line_items[0].price_data.unit_amount` = upgrade price in öre
    - `metadata: { purchaseId, leagueId, fromTier, toTier }`
    - `success_url` / `cancel_url` back to the league page

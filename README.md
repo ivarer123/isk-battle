@@ -31,6 +31,25 @@ start with DevMode outside Development.
 The API build regenerates `src/web/src/api/openapi.json`; run `npm run generate:api` in `src/web` to update the
 typed client.
 
+### Payments (Stripe test mode)
+
+Without Stripe keys the upgrade button returns "Betalning är inte tillgänglig just nu" (503). To test payments:
+
+1. In the Stripe Dashboard (test mode): enable **Card** and **Swish** under Settings → Payment methods, and turn on
+   "Successful payments" customer emails (Stripe sends the receipts).
+2. Store the keys as user secrets:
+   ```sh
+   dotnet user-secrets --project src/IskBattle.Api set Stripe:SecretKey sk_test_...
+   stripe listen --forward-to localhost:5080/webhooks/stripe   # prints whsec_...
+   dotnet user-secrets --project src/IskBattle.Api set Stripe:WebhookSecret whsec_...
+   ```
+3. Pay with test card `4242 4242 4242 4242`. Two players buying the same tier at once leaves the second purchase as
+   `NeedsRefund` (logged as a warning); refund it manually in the Stripe Dashboard.
+
+For production, create the webhook endpoint for `checkout.session.completed`,
+`checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`,
+using the API version of the Stripe.net SDK in `Directory.Packages.props`.
+
 ### Database migrations
 
 ```sh

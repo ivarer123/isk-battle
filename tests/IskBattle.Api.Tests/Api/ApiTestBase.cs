@@ -7,6 +7,8 @@ public abstract class ApiTestBase(SqlServerFixture sql) : IAsyncDisposable
 {
     protected ApiFactory Factory { get; } = new(sql);
 
+    protected SqlServerFixture Sql { get; } = sql;
+
     protected async Task<LeagueDetail> CreateLeagueAsync(HttpClient owner, Cadence cadence = Cadence.Weekly, string name = "Kompisligan") =>
         await (await owner.PostJsonAsync("/leagues", new { name, cadence })).ReadAsync<LeagueDetail>();
 

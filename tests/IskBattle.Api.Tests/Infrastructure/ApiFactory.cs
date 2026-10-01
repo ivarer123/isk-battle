@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IskBattle.Infrastructure.Email;
+using IskBattle.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -28,6 +29,8 @@ public sealed class ApiFactory(SqlServerFixture sql) : WebApplicationFactory<Pro
 
     public RecordingEmailSender Emails { get; } = new();
 
+    public FakePaymentGateway Payments { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -40,6 +43,7 @@ public sealed class ApiFactory(SqlServerFixture sql) : WebApplicationFactory<Pro
         {
             services.AddSingleton<TimeProvider>(Time);
             services.AddSingleton<IEmailSender>(Emails);
+            services.AddSingleton<IPaymentGateway>(Payments);
             services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
             services.PostConfigure<AuthenticationOptions>(o =>

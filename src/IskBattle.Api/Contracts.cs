@@ -73,3 +73,7 @@ public sealed record StandingsRowResponse(
     bool IsMe);
 
 public sealed record StandingsResponse(PeriodResponse Period, IReadOnlyList<StandingsRowResponse> Rows);
+
+public sealed record StartCheckoutRequest(LeagueTier TargetTier, bool ImmediateDeliveryConsent);
+
+public sealed record CheckoutResponse(string CheckoutUrl);

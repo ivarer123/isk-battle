@@ -133,6 +133,10 @@
   "footer.terms": "Användarvillkor",
   "footer.privacy": "Integritetspolicy",
 
+  "error.consent_required": "Du behöver kryssa i rutan om ångerrätt för att fortsätta.",
+  "error.tier_invalid": "Välj en nivå över den nuvarande.",
+  "error.payments_unavailable": "Betalning är inte tillgänglig just nu.",
+  "error.payments_failed": "Det gick inte att starta betalningen. Försök igen.",
   "error.concurrent_update": "Någon annan ändrade samtidigt. Försök igen.",
   "error.league_forbidden": "Du har inte behörighet till det.",
   "error.league_not_found": "Ligan finns inte eller så är du inte medlem.",

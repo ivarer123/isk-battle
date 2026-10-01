@@ -67,11 +67,13 @@ app.UseRateLimiter();
 
 app.MapOpenApi();
 app.MapUnsubscribeEndpoints();
+app.MapStripeWebhook();
 
 var api = app.MapGroup("").RequireAuthorization().AddEndpointFilter(CurrentUser.UpsertFilter);
 api.MapMeEndpoints();
 api.MapCheckInEndpoints();
 api.MapLeagueEndpoints();
+api.MapCheckoutEndpoint();
 
 app.Run();
 
