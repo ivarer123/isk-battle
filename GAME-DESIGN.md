@@ -75,6 +75,17 @@ periodReturn = ((1 + latest/100) / (1 + base/100) - 1) * 100
 - Ranking: descending by period return. Equal returns share a rank.
 - Unranked members ("Ny", "Pausad") are listed below ranked members.
 
+### Clarifications
+
+- **Periods never cross a season.** Every period is clipped to its calendar year. An ISO week spanning New Year (e.g. 2026-W53, 28 Dec – 3 Jan) is split into two parts, one per season.
+- **Dag** runs from a trading day to the next trading day, so a weekend check-in counts toward Friday. The season's first Dag starts on 1 January even if that day is a weekend, and a weekend date resolves to the Dag that contains it.
+- **"Begins at the start of the season"** means no trading day exists in the season before the period's start date.
+- **Precedence:** a member with no base in a period that doesn't start the season is "Ny", even if they also have no latest. "Pausad" shows the last YTD from the same season (up to the period end), or nothing if there is none. Previous seasons are never shown.
+- **Ranking** compares returns rounded to 2 decimals. Ranks use competition style (1, 1, 3). Ties, and unranked members within each group, are ordered by display name. Ranked members come first, then "Ny", then "Pausad".
+- The requested date only selects the period. It is not an as-of cutoff.
+- Only active members appear in standings. When a member joined the league doesn't matter.
+- **Typo guard** compares with the most recent check-in dated before today in the same season. The first check-in of a season never asks for confirmation.
+
 ### No punishment for absence
 
 There are no streaks and no penalties in v1. A player on holiday simply appears as "Pausad"; everyone else continues normally. Their YTD is carried forward and they rejoin the rankings at their next check-in.
@@ -157,3 +168,4 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-09-21 | Owner = creator; payers become co-hosts |
 | 2026-09-21 | Missed check-ins = "Pausad", no penalty |
 | 2026-09-21 | Payments included in v1 |
+| 2026-10-01 | §6 clarifications: periods clipped to season, Dag spans weekends, Ny before Pausad, 2-dp ties with competition ranking, typo guard within season |
