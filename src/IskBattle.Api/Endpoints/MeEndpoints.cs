@@ -15,8 +15,8 @@ internal static class MeEndpoints
     public static void MapMeEndpoints(this RouteGroupBuilder api)
     {
         api.MapGet("/me", GetMe);
-        api.MapPatch("/me", UpdateMe);
-        api.MapDelete("/me", DeleteMe);
+        api.MapPatch("/me", UpdateMe).Produces<MeResponse>().ProducesProblem(StatusCodes.Status400BadRequest);
+        api.MapDelete("/me", DeleteMe).Produces(StatusCodes.Status204NoContent);
     }
 
     private static async Task<MeResponse> GetMe(HttpContext http, IskBattleDbContext db, TimeProvider time)

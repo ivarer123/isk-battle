@@ -20,16 +20,36 @@ internal static class LeagueEndpoints
 
     public static void MapLeagueEndpoints(this RouteGroupBuilder api)
     {
-        api.MapPost("/leagues", Create);
+        api.MapPost("/leagues", Create).Produces<LeagueDetail>(StatusCodes.Status201Created).ProducesProblem(StatusCodes.Status400BadRequest);
         api.MapGet("/leagues", List);
-        api.MapPost("/leagues/join", Join).RequireRateLimiting(JoinRateLimitPolicy);
-        api.MapGet("/leagues/{id:guid}", Get).RequireLeague(LeagueAccessLevel.AnyMember);
-        api.MapPatch("/leagues/{id:guid}", Update).RequireLeague(LeagueAccessLevel.Host);
-        api.MapDelete("/leagues/{id:guid}", Delete).RequireLeague(LeagueAccessLevel.Owner);
-        api.MapPost("/leagues/{id:guid}/invite-code", RegenerateInviteCode).RequireLeague(LeagueAccessLevel.Host);
-        api.MapDelete("/leagues/{id:guid}/members/{userId:guid}", RemoveMember).RequireLeague(LeagueAccessLevel.AnyMember);
-        api.MapGet("/leagues/{id:guid}/standings", Standings).RequireLeague(LeagueAccessLevel.ActiveMember);
+        api.MapPost("/leagues/join", Join)
+            .RequireRateLimiting(JoinRateLimitPolicy)
+            .Produces<JoinLeagueResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        api.MapGet("/leagues/{id:guid}", Get)
+            .RequireLeague(LeagueAccessLevel.AnyMember);
+        api.MapPatch("/leagues/{id:guid}", Update)
+            .RequireLeague(LeagueAccessLevel.Host)
+            .Produces<LeagueDetail>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+        api.MapDelete("/leagues/{id:guid}", Delete)
+            .RequireLeague(LeagueAccessLevel.Owner)
+            .Produces(StatusCodes.Status204NoContent);
+        api.MapPost("/leagues/{id:guid}/invite-code", RegenerateInviteCode)
+            .RequireLeague(LeagueAccessLevel.Host)
+            .Produces<LeagueDetail>();
+        api.MapDelete("/leagues/{id:guid}/members/{userId:guid}", RemoveMember)
+            .RequireLeague(LeagueAccessLevel.AnyMember)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+        api.MapGet("/leagues/{id:guid}/standings", Standings)
+            .RequireLeague(LeagueAccessLevel.ActiveMember)
+            .Produces<StandingsResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
     }
+
+    // Handlers under /leagues/{id} take `Guid id` for the OpenAPI contract; the league itself is loaded
+    // and authorized by RequireLeague and read with http.GetLeague().
 
     private static async Task<IResult> Create(CreateLeagueRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
@@ -100,13 +120,13 @@ internal static class LeagueEndpoints
         return Results.Ok(new JoinLeagueResponse(league.Id, league.Name, status, outcome == JoinOutcome.AlreadyMember));
     }
 
-    private static async Task<LeagueDetail> Get(HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<LeagueDetail> Get(Guid id, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var (league, me) = http.GetLeague();
         return await DetailAsync(db, league, me, time, http.RequestAborted);
     }
 
-    private static async Task<IResult> Update(UpdateLeagueRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<IResult> Update(Guid id, UpdateLeagueRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var (league, me) = http.GetLeague();
         if (request.Name is not null)
@@ -129,7 +149,7 @@ internal static class LeagueEndpoints
         return Results.Ok(await DetailAsync(db, league, me, time, http.RequestAborted));
     }
 
-    private static async Task<IResult> Delete(HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<IResult> Delete(Guid id, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var (league, _) = http.GetLeague();
         league.DeletedAt = time.GetUtcNow();
@@ -137,7 +157,7 @@ internal static class LeagueEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> RegenerateInviteCode(HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<IResult> RegenerateInviteCode(Guid id, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var (league, me) = http.GetLeague();
         league.InviteCode = await UnusedInviteCodeAsync(db, http.RequestAborted);
@@ -147,7 +167,7 @@ internal static class LeagueEndpoints
     }
 
     private static async Task<IResult> RemoveMember(
-        Guid userId, HttpContext http, IskBattleDbContext db, TimeProvider time, INotificationService notifications)
+        Guid id, Guid userId, HttpContext http, IskBattleDbContext db, TimeProvider time, INotificationService notifications)
     {
         var (league, me) = http.GetLeague();
         var target = league.Member(userId);
@@ -165,7 +185,7 @@ internal static class LeagueEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> Standings(string? period, DateOnly? date, HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<IResult> Standings(Guid id, string? period, DateOnly? date, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var (league, me) = http.GetLeague();
         var day = date ?? StockholmTime.Today(time);

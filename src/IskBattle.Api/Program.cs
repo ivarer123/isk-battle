@@ -4,6 +4,7 @@ using IskBattle.Api.Auth;
 using IskBattle.Api.Endpoints;
 using IskBattle.Infrastructure;
 using IskBattle.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,15 +13,27 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
-builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+});
 
 // Microsoft Entra External ID (email one-time passcode). Keep raw claim names ("sub", "email").
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+var devAuth = builder.Configuration.GetValue<bool>("Auth:DevMode");
+if (devAuth && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("Auth:DevMode is only allowed in Development.");
+
+var authentication = builder.Services
+    .AddAuthentication(devAuth ? DevAuthHandler.SchemeName : JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
-        builder.Configuration.Bind("Auth", o);
+        o.Authority = builder.Configuration["Auth:Authority"];
+        o.Audience = builder.Configuration["Auth:Audience"];
         o.MapInboundClaims = false;
     });
+if (devAuth)
+    authentication.AddScheme<AuthenticationSchemeOptions, DevAuthHandler>(DevAuthHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(o =>

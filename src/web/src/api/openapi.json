@@ -1,0 +1,1028 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "IskBattle.Api | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/me": {
+      "get": {
+        "tags": [
+          "MeEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "MeEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "MeEndpoints"
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/check-ins": {
+      "post": {
+        "tags": [
+          "CheckInEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/check-ins": {
+      "get": {
+        "tags": [
+          "CheckInEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "season",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckInResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leagues": {
+      "post": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeagueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeagueSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leagues/join": {
+      "post": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinLeagueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinLeagueResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leagues/{id}": {
+      "get": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeagueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/leagues/{id}/invite-code": {
+      "post": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leagues/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leagues/{id}/standings": {
+      "get": {
+        "tags": [
+          "LeagueEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Cadence": {
+        "enum": [
+          "Daily",
+          "Weekly",
+          "Monthly",
+          null
+        ]
+      },
+      "CheckInRequest": {
+        "required": [
+          "ytdPercent",
+          "confirmed"
+        ],
+        "type": "object",
+        "properties": {
+          "ytdPercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CheckInResponse": {
+        "required": [
+          "forDate",
+          "ytdPercent"
+        ],
+        "type": "object",
+        "properties": {
+          "forDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "ytdPercent": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CreateLeagueRequest": {
+        "required": [
+          "name",
+          "cadence"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/Cadence"
+          }
+        }
+      },
+      "JoinLeagueRequest": {
+        "required": [
+          "inviteCode"
+        ],
+        "type": "object",
+        "properties": {
+          "inviteCode": {
+            "type": "string"
+          }
+        }
+      },
+      "JoinLeagueResponse": {
+        "required": [
+          "leagueId",
+          "leagueName",
+          "status",
+          "alreadyMember"
+        ],
+        "type": "object",
+        "properties": {
+          "leagueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leagueName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MemberStatus"
+          },
+          "alreadyMember": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LeagueDetail": {
+        "required": [
+          "id",
+          "name",
+          "cadence",
+          "nextSeasonCadence",
+          "tier",
+          "capacity",
+          "activeMemberCount",
+          "pendingMemberCount",
+          "myRole",
+          "myStatus",
+          "inviteCode",
+          "periods",
+          "members",
+          "upgradeOptions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/Cadence"
+          },
+          "nextSeasonCadence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Cadence"
+              }
+            ]
+          },
+          "tier": {
+            "$ref": "#/components/schemas/LeagueTier"
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activeMemberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingMemberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "myRole": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "myStatus": {
+            "$ref": "#/components/schemas/MemberStatus"
+          },
+          "inviteCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "periods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeriodType"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeagueMemberResponse"
+            }
+          },
+          "upgradeOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpgradeOption"
+            }
+          }
+        }
+      },
+      "LeagueMemberResponse": {
+        "required": [
+          "userId",
+          "displayName",
+          "role",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MemberStatus"
+          }
+        }
+      },
+      "LeagueSummary": {
+        "required": [
+          "id",
+          "name",
+          "cadence",
+          "tier",
+          "myRole",
+          "myStatus",
+          "activeMemberCount",
+          "capacity"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/Cadence"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/LeagueTier"
+          },
+          "myRole": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "myStatus": {
+            "$ref": "#/components/schemas/MemberStatus"
+          },
+          "activeMemberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LeagueTier": {
+        "enum": [
+          "Free",
+          "Premium50",
+          "Premium100",
+          "Premium250"
+        ]
+      },
+      "MemberRole": {
+        "enum": [
+          "Owner",
+          "CoHost",
+          "Member"
+        ]
+      },
+      "MemberStatus": {
+        "enum": [
+          "Active",
+          "Pending"
+        ]
+      },
+      "MeResponse": {
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "emailRemindersEnabled",
+          "effectiveCadence",
+          "today",
+          "lastCheckIn"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailRemindersEnabled": {
+            "type": "boolean"
+          },
+          "effectiveCadence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Cadence"
+              }
+            ]
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "lastCheckIn": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CheckInResponse"
+              }
+            ]
+          }
+        }
+      },
+      "PeriodResponse": {
+        "required": [
+          "type",
+          "start",
+          "end",
+          "season",
+          "isoWeek"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/PeriodType"
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "season": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isoWeek": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PeriodType": {
+        "enum": [
+          "Day",
+          "Week",
+          "Month",
+          "Year"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StandingsResponse": {
+        "required": [
+          "period",
+          "rows"
+        ],
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/PeriodResponse"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingsRowResponse"
+            }
+          }
+        }
+      },
+      "StandingsRowResponse": {
+        "required": [
+          "userId",
+          "displayName",
+          "status",
+          "rank",
+          "periodReturn",
+          "ytdPercent",
+          "isMe"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StandingStatus"
+          },
+          "rank": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "periodReturn": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ytdPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "isMe": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StandingStatus": {
+        "enum": [
+          "Ranked",
+          "Ny",
+          "Pausad"
+        ]
+      },
+      "UpdateLeagueRequest": {
+        "required": [
+          "name",
+          "nextSeasonCadence"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextSeasonCadence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Cadence"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateMeRequest": {
+        "required": [
+          "displayName",
+          "emailRemindersEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "emailRemindersEnabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "UpgradeOption": {
+        "required": [
+          "tier",
+          "capacity",
+          "priceOre"
+        ],
+        "type": "object",
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/LeagueTier"
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "priceOre": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "MeEndpoints"
+    },
+    {
+      "name": "CheckInEndpoints"
+    },
+    {
+      "name": "LeagueEndpoints"
+    }
+  ]
+}

@@ -21,6 +21,10 @@ jobs:
       - name: Build
         run: dotnet build IskBattle.slnx -c Release --no-restore
 
+      # The build regenerates src/web/src/api/openapi.json; it must match what the web client was built from.
+      - name: API contract is committed
+        run: git diff --exit-code -- src/web/src/api/openapi.json
+
       - name: Test
         run: dotnet test --solution IskBattle.slnx -c Release --no-build
 
@@ -32,3 +36,26 @@ jobs:
           --coverlet-include "[IskBattle.Domain]IskBattle.Domain.Standings.*"
           --coverlet-threshold 100
           --coverlet-threshold-type branch
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - run: npm ci
+
+      - name: Generated client matches the API contract
+        run: npm run generate:api && git diff --exit-code -- src/api/schema.d.ts
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

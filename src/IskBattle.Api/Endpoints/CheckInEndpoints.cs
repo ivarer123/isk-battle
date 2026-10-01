@@ -13,7 +13,11 @@ internal static class CheckInEndpoints
 
     public static void MapCheckInEndpoints(this RouteGroupBuilder api)
     {
-        api.MapPost("/check-ins", CheckIn).RequireRateLimiting(RateLimitPolicy);
+        api.MapPost("/check-ins", CheckIn)
+            .RequireRateLimiting(RateLimitPolicy)
+            .Produces<CheckInResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         api.MapGet("/me/check-ins", History);
     }
 
