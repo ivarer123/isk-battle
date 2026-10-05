@@ -41,7 +41,7 @@ Agreed pace: build continuously, pause before Azure deployment. Tests at last ru
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
-Functions host, the GitHub Actions workflow, and clicking through the UI in a browser (only API-through-proxy smoke
+reminder job host, the GitHub Actions workflow, and clicking through the UI in a browser (only API-through-proxy smoke
 tested).
 
 **Blocked on the user for milestone 8/launch:** Azure subscription, Entra External ID tenant, domain name, Stripe
@@ -60,7 +60,8 @@ src/IskBattle.Infrastructure  EF Core (SQL Server) + migrations, CheckInQueries.
 src/IskBattle.Api             Minimal API. Auth/{CurrentUser upsert filter, DevAuthHandler}, Leagues/LeagueAccess
                               (endpoint-filter authorization, rowversion save), Endpoints/*, Contracts.cs, Problems.cs.
                               Build writes OpenAPI to src/web/src/api/openapi.json
-src/IskBattle.Functions       Isolated worker, CheckInReminders timer every 15 min -> ReminderJob
+src/IskBattle.Functions       Isolated worker, CheckInReminders timer every 15 min -> ReminderJob. TO BE REPLACED by
+                              IskBattle.Jobs console (`reminders`, Container Apps Job cron) – see ARCHITECTURE §8
 src/web                       Vite + React 19 + TS 5.9 + React Router 7 + TanStack Query, PWA, openapi-fetch typed
                               client (npm run generate:api), hooks in src/hooks/queries.ts, strings in
                               src/i18n/sv.json via t(), screens in src/pages
@@ -115,8 +116,11 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
 
 ## Next steps
 
-1. When the user has the accounts: milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free offer,
-   Flex Consumption Functions, ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
+1. First code step (docs approved 2026-10-05): replace IskBattle.Functions with an IskBattle.Jobs console project
+   (time gate before any DB access, cron 0 6,7 * * * UTC + 0 18,19 29-31 12 *), plus a Dockerfile building API + job.
+   Then, when the user has the accounts: milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
+   offer (auto-pause at limit in dev, "continue using" before launch; Basic 5 DTU fallback), Container Apps Job
+   (cron, same image), ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
    `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in
    deploy, CORS for the app origin, custom domains. Also an Entra External ID SPA + API app registration
    (`VITE_ENTRA_*`, `Auth:Authority/Audience`); the API's access token **must include the `email` optional claim**

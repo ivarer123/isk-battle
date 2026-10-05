@@ -83,7 +83,7 @@ is a better habit anchor.
 | Monthly | 08:00 on the day after the last trading day of the month | No check-in for that day |
 
 - **Season end:** the final window closes at midnight, so its reminder goes out at **20:00 on the year's last trading day** (all cadences), before the window opens at 22:30.
-- A reminder missed at its time (e.g. the job was down) is still sent while the window is open.
+- Reminders are sent by one scheduled run at 08:00 (20:00 at season end), not by polling, to keep database costs down. A failed run is retried; beyond that there is no guaranteed catch-up later in the window.
 
 ## 5. Cadence
 
@@ -229,3 +229,4 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-10-05 | Unsubscribe link shows a confirm page; the change happens on POST |
 | 2026-10-05 | §4a check-in windows: attributed to the trading day; 22:30 opens, 09:00 / Sunday close; reminders at 08:00. Supersedes "stored against today's date" and the 18:00 reminders (incl. the same-day New Year split-week rule) |
 | 2026-10-05 | Windows are the union of the player's cadences; Daily with no active league; Monthly closes 09:00 next trading day; season end = window for all cadences closing 23:59 on 31 Dec, reminder 20:00 |
+| 2026-10-05 | Reminder job runs on cron at 08:00 Stockholm (plus 20:00 on 29–31 Dec), not every 15 minutes; catch-up only via retries. Supersedes "reminders catch up within their window" |

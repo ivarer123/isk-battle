@@ -6,7 +6,7 @@
 ## 1. Principles
 
 - **Boring and cheap.** Traffic is tiny (one small write per player per check-in). Optimise for simplicity and near-zero idle cost, not scale.
-- **Rules live in the Domain project** as pure, unit-tested C#. The API and Functions are thin shells around it.
+- **Rules live in the Domain project** as pure, unit-tested C#. The API and the reminder job are thin shells around it.
 - **Derived over stored.** Standings, seasons and period returns are computed from check-ins, never persisted.
 - **Time is injected.** All time-dependent logic uses `TimeProvider` so rules are testable.
 - **All business time is Europe/Stockholm.** Store UTC; convert at the domain boundary.
@@ -17,12 +17,12 @@
 |---|---|
 | Backend | .NET 10, ASP.NET Core minimal APIs |
 | Data | Azure SQL Database (free offer), EF Core, migrations |
-| Background | Azure Functions (.NET isolated, timer triggers) |
+| Background | Azure Container Apps Job (cron), console entry point `IskBattle.Jobs` |
 | Frontend | React + TypeScript + Vite, PWA, TanStack Query, React Router |
 | Auth | Microsoft Entra External ID, email one-time passcode; MSAL React on the client, JWT bearer on the API |
 | Email | Azure Communication Services Email, custom domain with SPF/DKIM/DMARC |
 | Payments | Stripe Checkout (card + Swish), webhooks |
-| Hosting | Azure Static Web Apps (frontend), Azure Container Apps consumption (API), Functions Flex Consumption |
+| Hosting | Azure Static Web Apps (frontend), Azure Container Apps consumption (API), Container Apps Job (reminders; same environment and image as the API) |
 | Images | GitHub Container Registry (avoids ACR cost) |
 | Observability | Application Insights |
 | IaC / CI | Bicep, GitHub Actions |
@@ -39,7 +39,7 @@ isk-battle/
 │   ├── IskBattle.Domain/          # Entities, rules, scoring. No external deps.
 │   ├── IskBattle.Infrastructure/  # EF Core, email, Stripe, time zone helpers
 │   ├── IskBattle.Api/             # Minimal API endpoints, auth, webhooks
-│   ├── IskBattle.Functions/       # Timer triggers (reminders)
+│   ├── IskBattle.Jobs/            # Console entry point: `reminders` (Container Apps Job)
 │   └── web/                       # React + Vite PWA
 ├── tests/
 │   ├── IskBattle.Domain.Tests/
@@ -48,7 +48,7 @@ isk-battle/
 └── .github/workflows/
 ```
 
-Dependency direction: `Api → Infrastructure → Domain`, `Functions → Infrastructure → Domain`. Domain references nothing.
+Dependency direction: `Api → Infrastructure → Domain`, `Jobs → Infrastructure → Domain`. Domain references nothing.
 
 ## 4. Domain model
 
@@ -225,9 +225,15 @@ Local development: Stripe test mode + `stripe listen --forward-to localhost:5080
 
 ## 8. Email and reminders
 
-`IskBattle.Functions` hosts one timer trigger:
+Reminders are sent by a **Container Apps Job on a cron schedule**, not by polling. Azure SQL serverless only stops billing when it auto-pauses, so a job touching the database every 15 minutes would keep it awake 24/7 (~1,500–2,000 kr/month). The job runs only when reminders can be due.
 
-- `CheckInReminders`: runs every 15 minutes. For each user with reminders enabled and at least one active league: compute effective cadence (most frequent across active leagues), ask `ReminderPolicy` whether a reminder is due, skip if `LastReminderWindowKey` equals the current window key, send, then update the key. At most one reminder per window, even if the function runs twice.
+- **Schedule (cron is evaluated in UTC):**
+  - `0 6,7 * * *`: 08:00 Stockholm in summer (06:00 UTC) and winter (07:00 UTC). One run covers Daily, Weekly and Monthly reminders (GAME-DESIGN.md §4a).
+  - `0 18,19 29-31 12 *`: 20:00 Stockholm on 29–31 Dec, for the season-end reminder on the year's last trading day.
+- **Time gate first, no database access:** the job checks the Stockholm time and exits with code 0 unless it is 08:00–08:59, or 20:00–20:59 on the year's last trading day. The trigger that falls outside the gate (07:00 UTC in summer = 09:00, 06:00 UTC in winter = 07:00) never wakes SQL, so the database is woken once a day.
+- **Each real run:** for each user with reminders enabled and at least one active league, compute the effective cadence (most frequent across active leagues) and the current window (`ReminderPolicy.Evaluate`), skip users who already checked in for that trading day, claim the window by conditionally updating `LastReminderWindowKey`, then send. At most one reminder per window, even if two runs overlap.
+- **Catch-up:** there is no polling to catch up later. A failed run is retried by the job's retry policy (`replicaRetryLimit`). Otherwise a missed reminder is only sent if a later scheduled run still falls inside the window: Weekly on Sunday 08:00, and Monthly the next morning when the window spans a weekend. Daily reminders have no catch-up beyond retries, because the window closes at 09:00.
+- **Packaging:** `IskBattle.Jobs` is a console app (generic host, no web server) sharing Domain and Infrastructure. One Dockerfile publishes the API and the job into the same image; the Container Apps Job overrides the command with `dotnet IskBattle.Jobs.dll reminders`.
 
 Emails are sent through an `IEmailSender` abstraction:
 
@@ -269,7 +275,7 @@ Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`:
 | Static Web Apps | Free |
 | Container Apps environment + app | Consumption, min replicas 0 |
 | Azure SQL Database | Free offer (auto-pause) |
-| Function App | Flex Consumption |
+| Container Apps Job (reminders) | Consumption, cron trigger, same environment and image as the API |
 | Communication Services + Email | Pay per email |
 | Key Vault | Standard (secrets: Stripe keys, webhook secret, HMAC key) |
 | Application Insights | Pay-as-you-go (within free ingestion) |
@@ -278,9 +284,12 @@ Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`:
 - **Local development:** Vite dev server proxies `/api` to the local API, so there is no CORS locally and phones on the LAN work through the proxy (avoids the hub-URL/CORS issue from Beerio Kart). SQL Server in Docker, Stripe CLI for webhooks.
 - The API uses managed identity for SQL and Key Vault.
 - The frontend must tolerate a slow first request after SQL auto-pause (loading state, one retry).
+- **SQL free offer limit:** "behavior when free limit reached" is set to **auto-pause** during development. Before launch it must be switched to **"continue using the database"** (billed beyond the free amount), so the app doesn't go offline mid-month.
+- **SQL fallback:** if monthly SQL cost exceeds roughly 100 kr once real users arrive, move to **Azure SQL Basic (5 DTU, 2 GB)** at about 50 kr/month, which is fixed-price and never pauses.
+- The free offer is about 100,000 vCore-seconds per month (~55 hours awake at 0.5 vCore). Players' own check-ins wake the database too (evenings from 22:30, mornings before 09:00), so a handful of daily players will likely use up the free budget. The 08:00 reminder run shares the morning wake-up with check-ins.
 - Environments: `local` and `prod` only in v1.
 
-Expected cost: under ~100 kr/month up to several thousand active players.
+Expected cost: close to 0 kr/month while the SQL free offer lasts (development and the first few players); with real daily players about 50–100 kr/month, mostly Azure SQL (Basic at ~50 kr/month as the fixed-price fallback).
 
 ## 11. Security and privacy
 
@@ -301,9 +310,9 @@ Each milestone ends with passing tests and a commit.
 3. **Persistence** — EF Core model, migrations, indexes (`CheckIn(UserId, ForDate)` unique; `LeagueMember(LeagueId, Status, JoinedAt)`; `Purchase(StripeCheckoutSessionId)` unique).
 4. **API core** — auth, `/me`, check-ins, leagues, join, standings. Integration tests.
 5. **Frontend wiring** — generated client, hooks, routing, auth; Claude Design screens plugged in.
-6. **Email + reminders** — `IEmailSender`, templates, Functions timer, `ReminderPolicy` tests.
+6. **Email + reminders** — `IEmailSender`, templates, reminder job (cron), `ReminderPolicy` tests.
 7. **Payments** — checkout, webhook, pending activation, co-host promotion. Tested against Stripe test mode.
-8. **Infrastructure** — Bicep, deploy workflows, custom domains, email domain verification.
+8. **Infrastructure** — Dockerfile (API + job in one image), Bicep (incl. the Container Apps Job), deploy workflows, custom domains, email domain verification.
 9. **Legal pages + launch checklist** — terms, privacy policy, company details in footer, switch Stripe to live.
 
 ## 13. Open technical questions
