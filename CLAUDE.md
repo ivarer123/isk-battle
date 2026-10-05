@@ -3,8 +3,9 @@
 Side project by the user. Friends compare year-to-date (YTD) development of their main ISK account in season-long
 leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encourage risk-taking.
 
-- **GAME-DESIGN.md** owns the rules (source of truth – "if code and doc disagree, the doc wins"). Its §6
-  "Clarifications" and §12 decision log hold every rule agreed with the user so far.
+- **GAME-DESIGN.md** owns the rules (source of truth – "if code and doc disagree, the doc wins"). The
+  "Clarifications" in §4a (check-in windows) and §6 (standings), and the §12 decision log, hold every rule agreed
+  with the user so far.
 - **ARCHITECTURE.md** owns the technical design; §12 is the milestone build order.
 - **README.md** has run/test/migration/Stripe instructions.
 
@@ -31,18 +32,26 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 | 5 Frontend | done (`5026f46`) |
 | 6 Email + reminders | done (`792cafc`) |
 | 7 Payments (Stripe) | done (`df844bc`) |
-| 8 Infrastructure (Bicep, deploy, domains) | **next – blocked on user** |
+| 8 Infrastructure (Bicep, deploy, domains) | **next – blocked on user** (Dockerfile already done) |
 | 9 Legal pages + launch checklist | not started (legal pages are placeholders) |
 
-A full code review (2026-10-05) was followed by a fix commit (overcharge refunds, startup config validation,
-New Year reminder windows, pending-join email spam, oid, 400s for out-of-range dates, unsubscribe confirm page).
+Work after milestone 7 (2026-10-05):
+- `64fb88f` code-review fixes: overcharge refunds, startup config validation, pending-join email spam, `oid`,
+  400s for out-of-range dates, unsubscribe confirm page.
+- `df1ca34` check-in windows and trading-day attribution (GAME-DESIGN §4a), reminders at 08:00.
+- `24e77e8` friendlier window times on Home ("ikväll kl. 22.30"), `Dev:Now` dev clock.
+- `0f45b6d` + `4f63beb` reminder job moved from Azure Functions (15-min timer) to `IskBattle.Jobs`, a Container Apps
+  Job on cron with a DB-free time gate; root `Dockerfile` builds API + job into one image.
+
+The user clicked through the app locally (2026-10-05) and said it matches their idea; they have "some minor things"
+to raise later – ask for them.
 
 Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 302 .NET + 23 web, all green;
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
-reminder job host, the GitHub Actions workflow, and clicking through the UI in a browser (only API-through-proxy smoke
-tested).
+Container Apps Job in Azure, and the GitHub Actions workflow. Verified locally: the UI in a browser (dev sign-in,
+Playwright), the reminder job and the Docker image (API + job against local SQL).
 
 **Blocked on the user for milestone 8/launch:** Azure subscription, Entra External ID tenant, domain name, Stripe
 account with Swish (needs company / organisationsnummer – also required for the legal footer).
@@ -79,15 +88,16 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
 - Ny beats Pausad; Pausad shows last YTD of the same season only. Ties on 2-dp rounded returns, competition ranking
   1,1,3, ties/unranked sorted by name; Ranked → Ny → Pausad.
 - Standings `date` only selects the period. Only Active members appear; join date ignored.
-- Typo guard: >20 pp vs. most recent check-in before today in the same season.
+- Typo guard: >20 pp vs. most recent check-in for an earlier trading day in the same season.
 - Earliest co-host = first to pay (`LeagueMember.PromotedAt`). Pending members may pay and become active co-hosts.
 - Ownership on owner leave passes among already-active members before the queue is activated.
 - A freed slot activates the first Pending member. Hosts can remove only ordinary members.
 - Cadence change is queued via `League.NextCadenceSeason` (no rollover job). Extra endpoint
   `POST /leagues/{id}/invite-code`.
 - Pending members see league name + upgrade options only (no member list/standings).
-- One email switch (`EmailRemindersEnabled`) governs all email; unsubscribe turns it off. Reminders catch up within
-  their window. Window claimed with a conditional update before sending (at most once).
+- One email switch (`EmailRemindersEnabled`) governs all email; unsubscribe turns it off. Reminder window claimed
+  with a conditional update before sending (at most once). No polling catch-up: the job runs once a day (cron),
+  catch-up only via job retries (exit code 1) or a later scheduled run inside the window.
 - Stripe.net 53: `AllowedPaymentMethodTypes = [card, swish]`; webhook parsed with `throwOnApiVersionMismatch:false`.
   Concurrent same-tier buyer → `NeedsRefund`; overtaken by a smaller upgrade → `PaidNeedsPartialRefund`; both set
   `Purchase.RefundDueOre` (manual refund). Checkout returns 503 when Stripe keys are missing.
@@ -96,8 +106,8 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
   09:00 (Daily/Monthly next trading day) or Sunday midnight (Weekly); union of the player's cadences, Daily with no
   league; season end = window for all cadences closing at midnight 31 Dec. Reminders 08:00 the day after (20:00 on
   the season's last trading day). API tests' clock defaults to Monday 22:45 so the Daily window is open.
-- Hosts get one pending-join email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control chars in display and league
-  names. Unsubscribe GET = confirm page, POST = change.
+- Hosts get one pending-join email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control
+  chars in display and league names. Unsubscribe GET = confirm page, POST = change.
 
 ## Environment gotchas
 
@@ -113,18 +123,30 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
 - Local run: SQL container `isk-battle-sql` on 1433 (password in appsettings.Development.json), API on :5080 with
   `--launch-profile http`, Vite on :5173 proxying `/api`. Dev sign-in sends `X-Dev-User`. `Dev__Now=<ISO instant>`
   shifts the API/job clock in Development (`DevClock`, `AddDevClock`) to try windows at other times. Run the job
-  locally: `DOTNET_ENVIRONMENT=Development dotnet run --project src/IskBattle.Jobs -- reminders`. No `chromium-cli` here: drive the
-  UI with Playwright from a scratch folder (cached browser `~/Library/Caches/ms-playwright/chromium-1117`).
+  locally: `DOTNET_ENVIRONMENT=Development dotnet run --project src/IskBattle.Jobs -- reminders`. No `chromium-cli`
+  here: drive the UI with Playwright from a scratch folder (cached browser
+  `~/Library/Caches/ms-playwright/chromium-1117`, pass it as `executablePath`).
+- The local DB has test players anna, bertil, cecilia, david (Weekly league "Veckoligan") and the user's own
+  `ivarer` (Weekly league "hejs liga"). A Weekly-only player can only check in Fri 22:30 – Sun 23:59.
+- `Dockerfile`: publish uses `-p:OpenApiGenerateDocuments=false` (web client not in the build context); the job
+  catches exceptions and returns 1 because an unhandled exception after `host.StartAsync` hangs the process.
 
 ## Next steps
 
-1. When the user has the accounts: milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
+1. The user is doing the Azure/Entra/domain/Stripe setup with Claude chat and will come back with a checklist of IDs,
+   names and URLs (secrets go straight into Key Vault, never into chat). Then milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
    offer (auto-pause at limit in dev, "continue using" before launch; Basic 5 DTU fallback), Container Apps Job
    (cron, same image), ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
    `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in
    deploy, CORS for the app origin, custom domains. Also an Entra External ID SPA + API app registration
    (`VITE_ENTRA_*`, `Auth:Authority/Audience`); the API's access token **must include the `email` optional claim**
-   (and `oid`), otherwise no email is ever sent. Docker Desktop must be running for the .NET tests.
+   (and `oid`), otherwise no email is ever sent. Container Apps Job: cron `0 6,7 * * *` + `0 18,19 29-31 12 *`
+   (UTC), command `dotnet /app/jobs/IskBattle.Jobs.dll reminders`, retry limit > 0. Images to GHCR, GitHub Actions
+   with OIDC. Application Insights is not wired into the API or the job yet (the old Functions app had it).
+   Docker Desktop must be running for the .NET tests.
 2. Milestone 9 – Swedish terms and privacy policy (data stored: email, display name, YTD %, purchases; 7-year
    bookkeeping retention), company details in footer, Stripe live keys.
-3. Open items worth raising with the user: Swedish exchange-holiday calendar.
+3. Open items worth raising with the user: Swedish exchange-holiday calendar (now matters more: check-ins belong to
+   trading days, and 31 Dec isn't a Nasdaq Stockholm trading day); the reminder email doesn't say when the window
+   closes (Daily closes 09:00, one hour after the reminder) – suggested adding the closing time; the user's minor UI
+   points.
