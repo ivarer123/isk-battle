@@ -24,8 +24,8 @@ public sealed class ApiFactory(SqlServerFixture sql) : WebApplicationFactory<Pro
 
     public const string TestUnsubscribeKey = "test-unsubscribe-key-0123456789abcdef";
 
-    /// <summary>Monday 21 September 2026, 12:00 in Stockholm.</summary>
-    public TestClock Time { get; } = new(new DateTimeOffset(2026, 9, 21, 10, 0, 0, TimeSpan.Zero));
+    /// <summary>Monday 21 September 2026, 22:45 in Stockholm: that day's Daily check-in window is open.</summary>
+    public TestClock Time { get; } = new(new DateTimeOffset(2026, 9, 21, 20, 45, 0, TimeSpan.Zero));
 
     public RecordingEmailSender Emails { get; } = new();
 

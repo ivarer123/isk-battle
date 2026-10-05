@@ -20,7 +20,17 @@ public static class GameConfig
     public const decimal MinYtdPercent = -99.99m;
     public const decimal MaxYtdPercent = 1000m;
     public const decimal ConfirmJumpThresholdPp = 20m;
-    public static readonly TimeOnly ReminderTime = new(18, 0);
+    /// <summary>Check-in windows open after the US close (22:00, 21:00 in the DST gap weeks) with margin.</summary>
+    public static readonly TimeOnly CheckInWindowOpens = new(22, 30);
+
+    /// <summary>Daily and Monthly windows close before Stockholm opens, so no reading includes the next day.</summary>
+    public static readonly TimeOnly CheckInWindowCloses = new(9, 0);
+
+    /// <summary>Reminders go out the morning after the trading day, inside the open window.</summary>
+    public static readonly TimeOnly ReminderTime = new(8, 0);
+
+    /// <summary>The season's final window closes at midnight, so its reminder goes out the same evening.</summary>
+    public static readonly TimeOnly SeasonEndReminderTime = new(20, 0);
     public const string TimeZoneId = "Europe/Stockholm";
 
     /// <summary>Trading days in v1 = Monday–Friday. Swedish exchange holidays are a later refinement.</summary>

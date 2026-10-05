@@ -51,6 +51,10 @@ export function useCheckIn() {
     onSuccess: (result) => {
       if (result.kind === 'saved') void queryClient.invalidateQueries();
     },
+    // The window closed while the dialog was open: refresh it so Home shows when the next one opens.
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) void queryClient.invalidateQueries({ queryKey: keys.me });
+    },
   });
 }
 

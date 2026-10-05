@@ -1,5 +1,6 @@
 using IskBattle.Api.Auth;
 using IskBattle.Domain;
+using IskBattle.Domain.CheckIns;
 using IskBattle.Domain.Leagues;
 using IskBattle.Domain.Text;
 using IskBattle.Domain.Time;
@@ -24,9 +25,8 @@ internal static class MeEndpoints
     {
         var user = http.GetCurrentUser();
         var today = StockholmTime.Today(time);
-        var cadences = await db.Leagues
-            .Where(l => l.Members.Any(m => m.UserId == user.Id && m.Status == MemberStatus.Active))
-            .ToListAsync(http.RequestAborted);
+        var now = StockholmTime.Now(time).DateTime;
+        var cadences = await CheckInEndpoints.CadencesAsync(db, user.Id, http.RequestAborted);
         var last = await db.CheckIns
             .Where(c => c.UserId == user.Id)
             .OrderByDescending(c => c.ForDate)
@@ -38,9 +38,13 @@ internal static class MeEndpoints
             user.DisplayName,
             user.Email,
             user.EmailRemindersEnabled,
-            LeagueRules.MostFrequent(cadences.Select(l => l.CadenceFor(today.Year))),
+            LeagueRules.MostFrequent(cadences(today.Year)),
             today,
-            last);
+            last,
+            CheckInWindows.Open(now, cadences) is { } open
+                ? new CheckInWindowResponse(open.TradingDay, StockholmTime.ToOffset(open.Closes))
+                : null,
+            StockholmTime.ToOffset(CheckInWindows.Next(now, cadences).Opens));
     }
 
     private static async Task<IResult> UpdateMe(UpdateMeRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)

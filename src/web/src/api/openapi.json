@@ -107,6 +107,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Entity",
             "content": {
@@ -590,6 +600,23 @@
           }
         }
       },
+      "CheckInWindowResponse": {
+        "required": [
+          "tradingDay",
+          "closesAt"
+        ],
+        "type": "object",
+        "properties": {
+          "tradingDay": {
+            "type": "string",
+            "format": "date"
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CheckoutResponse": {
         "required": [
           "checkoutUrl"
@@ -832,7 +859,9 @@
           "emailRemindersEnabled",
           "effectiveCadence",
           "today",
-          "lastCheckIn"
+          "lastCheckIn",
+          "openWindow",
+          "nextWindowOpensAt"
         ],
         "type": "object",
         "properties": {
@@ -872,6 +901,20 @@
                 "$ref": "#/components/schemas/CheckInResponse"
               }
             ]
+          },
+          "openWindow": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CheckInWindowResponse"
+              }
+            ]
+          },
+          "nextWindowOpensAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

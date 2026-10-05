@@ -8,4 +8,8 @@ public static class StockholmTime
     public static DateTimeOffset Now(TimeProvider time) => TimeZoneInfo.ConvertTime(time.GetUtcNow(), Zone);
 
     public static DateOnly Today(TimeProvider time) => DateOnly.FromDateTime(Now(time).DateTime);
+
+    /// <summary>A Stockholm wall-clock time as an absolute instant.</summary>
+    public static DateTimeOffset ToOffset(DateTime stockholmLocal) =>
+        new(stockholmLocal, Zone.GetUtcOffset(stockholmLocal));
 }

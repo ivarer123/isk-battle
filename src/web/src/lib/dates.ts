@@ -16,6 +16,26 @@ export function addDays(iso: string, days: number): string {
   return toIso(date);
 }
 
+const weekdayDayMonth = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+const stockholmDateTime = new Intl.DateTimeFormat('sv-SE', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Stockholm',
+});
+
+/** "måndag 21 september" for an ISO date. */
+export function formatWeekdayDayMonth(iso: string): string {
+  return weekdayDayMonth.format(parseDate(iso));
+}
+
+/** "tisdag 22 september 09:00" in Stockholm time for an ISO instant. */
+export function formatStockholmDateTime(instant: string): string {
+  return stockholmDateTime.format(new Date(instant));
+}
+
 export function formatDayMonth(iso: string): string {
   return dayMonth.format(parseDate(iso));
 }

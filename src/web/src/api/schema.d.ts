@@ -128,6 +128,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
                 /** @description Unprocessable Entity */
                 422: {
                     headers: {
@@ -603,6 +612,12 @@ export interface components {
             /** Format: double */
             ytdPercent: number;
         };
+        CheckInWindowResponse: {
+            /** Format: date */
+            tradingDay: string;
+            /** Format: date-time */
+            closesAt: string;
+        };
         CheckoutResponse: {
             checkoutUrl: string;
         };
@@ -676,6 +691,9 @@ export interface components {
             /** Format: date */
             today: string;
             lastCheckIn: null | components["schemas"]["CheckInResponse"];
+            openWindow: null | components["schemas"]["CheckInWindowResponse"];
+            /** Format: date-time */
+            nextWindowOpensAt: string;
         };
         PeriodResponse: {
             type: components["schemas"]["PeriodType"];

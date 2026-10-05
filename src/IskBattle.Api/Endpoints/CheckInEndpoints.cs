@@ -2,6 +2,7 @@ using IskBattle.Api.Auth;
 using IskBattle.Domain;
 using IskBattle.Domain.CheckIns;
 using IskBattle.Domain.Entities;
+using IskBattle.Domain.Leagues;
 using IskBattle.Domain.Time;
 using IskBattle.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,7 @@ internal static class CheckInEndpoints
             .RequireRateLimiting(RateLimitPolicy)
             .Produces<CheckInResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         api.MapGet("/me/check-ins", History)
             .Produces<List<CheckInResponse>>()
@@ -37,9 +39,16 @@ internal static class CheckInEndpoints
             .Take(2)
             .ToListAsync(http.RequestAborted);
 
-        var validation = CheckInValidator.Validate(request.YtdPercent, recent, time, request.Confirmed);
+        var cadences = await CadencesAsync(db, user.Id, http.RequestAborted);
+        var validation = CheckInValidator.Validate(request.YtdPercent, recent, time, cadences, request.Confirmed);
         switch (validation.Outcome)
         {
+            case CheckInOutcome.WindowClosed:
+                return Problems.Of(StatusCodes.Status409Conflict, "check_in_closed", "No check-in window is open right now.",
+                    new Dictionary<string, object?>
+                    {
+                        ["nextWindowOpensAt"] = StockholmTime.ToOffset(validation.NextWindow!.Opens),
+                    });
             case CheckInOutcome.OutOfRange:
                 return Problems.BadRequest("ytd_out_of_range", "YTD must be between -99.99 and 1000.");
             case CheckInOutcome.RequiresConfirmation:
@@ -71,6 +80,19 @@ internal static class CheckInEndpoints
         }
 
         return Results.Ok(new CheckInResponse(checkIn.ForDate, checkIn.YtdPercent));
+    }
+
+    /// <summary>
+    /// The cadences of the user's active leagues per season (GAME-DESIGN.md §4a: the union of their windows
+    /// applies; none means Daily).
+    /// </summary>
+    internal static async Task<Func<int, IReadOnlyCollection<Cadence>>> CadencesAsync(IskBattleDbContext db, Guid userId, CancellationToken ct)
+    {
+        var leagues = await db.Leagues
+            .Where(l => l.Members.Any(m => m.UserId == userId && m.Status == MemberStatus.Active))
+            .AsNoTracking()
+            .ToListAsync(ct);
+        return season => leagues.Select(l => l.CadenceFor(season)).Distinct().ToList();
     }
 
     private static async Task<IResult> History(int? season, HttpContext http, IskBattleDbContext db, TimeProvider time)

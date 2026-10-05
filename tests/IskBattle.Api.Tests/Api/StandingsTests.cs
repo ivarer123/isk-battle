@@ -21,13 +21,13 @@ public class StandingsTests(SqlServerFixture sql) : ApiTestBase(sql)
         await CheckInAsync(anna, 10m);
         await CheckInAsync(bertil, 5m);
         await CheckInAsync(david, 3m);
-        SetDate(2026, 9, 23);
+        SetDate(2026, 9, 25); // weekly check-ins report on Fridays
         await CheckInAsync(anna, 12.2m);   // +2.00 %
         await CheckInAsync(bertil, 7.1m);  // +2.00 %
         await CheckInAsync(cecilia, 4m);   // new this week
         // David is away this week.
 
-        var standings = await anna.GetAsync<StandingsResponse>($"/leagues/{league.Id}/standings?period=week&date=2026-09-23");
+        var standings = await anna.GetAsync<StandingsResponse>($"/leagues/{league.Id}/standings?period=week&date=2026-09-25");
 
         Assert.Equal(new PeriodResponse(PeriodType.Week, new DateOnly(2026, 9, 21), new DateOnly(2026, 9, 28), 2026, 39),
             standings.Period);
@@ -46,6 +46,7 @@ public class StandingsTests(SqlServerFixture sql) : ApiTestBase(sql)
         var anna = await Factory.NewPlayerAsync("Anna");
         var league = await CreateLeagueAsync(anna, Cadence.Monthly);
         var bertil = await JoinedPlayerAsync("Bertil", league);
+        SetDate(2026, 9, 30); // last trading day of the month
         await CheckInAsync(anna, -3.15m);
         await CheckInAsync(bertil, 12.4m);
 

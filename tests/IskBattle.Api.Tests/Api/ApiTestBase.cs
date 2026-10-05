@@ -1,5 +1,6 @@
 using IskBattle.Api.Tests.Infrastructure;
 using IskBattle.Domain;
+using IskBattle.Domain.Time;
 
 namespace IskBattle.Api.Tests.Api;
 
@@ -23,9 +24,9 @@ public abstract class ApiTestBase(SqlServerFixture sql) : IAsyncDisposable
     protected static async Task CheckInAsync(HttpClient player, decimal ytd) =>
         await (await player.PostJsonAsync("/check-ins", new { ytdPercent = ytd, confirmed = true })).ReadAsync<CheckInResponse>();
 
-    /// <summary>Moves the clock to 18:00 Stockholm (CEST) on the given date.</summary>
+    /// <summary>Moves the clock to 22:45 Stockholm on the given date, inside that trading day's check-in window.</summary>
     protected void SetDate(int year, int month, int day) =>
-        Factory.Time.SetUtcNow(new DateTimeOffset(year, month, day, 16, 0, 0, TimeSpan.Zero));
+        Factory.Time.SetUtcNow(StockholmTime.ToOffset(new DateTime(year, month, day, 22, 45, 0)));
 
     public async ValueTask DisposeAsync()
     {

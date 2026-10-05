@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using IskBattle.Api.Tests.Infrastructure;
 using IskBattle.Domain;
+using IskBattle.Domain.Time;
 
 namespace IskBattle.Api.Tests.Api;
 
@@ -64,7 +65,7 @@ public class MeAndCheckInTests(SqlServerFixture sql) : ApiTestBase(sql)
     }
 
     [Fact]
-    public async Task Check_in_today_and_overwrite_it()
+    public async Task Check_in_and_overwrite_it_while_the_window_is_open()
     {
         var player = await Factory.NewPlayerAsync("Anna");
 
@@ -75,6 +76,47 @@ public class MeAndCheckInTests(SqlServerFixture sql) : ApiTestBase(sql)
         Assert.Equal(new CheckInResponse(new DateOnly(2026, 9, 21), 12.5m), second);
         Assert.Equal([second], await player.GetAsync<List<CheckInResponse>>("/me/check-ins?season=2026"));
         Assert.Equal(second, (await player.GetAsync<MeResponse>("/me")).LastCheckIn);
+    }
+
+    [Fact]
+    public async Task Morning_check_in_reports_on_the_previous_trading_day_and_closes_at_0900()
+    {
+        var player = await Factory.NewPlayerAsync("Anna");
+        Factory.Time.SetUtcNow(StockholmTime.ToOffset(new DateTime(2026, 9, 22, 8, 30, 0))); // Tuesday 08:30
+
+        var me = await player.GetAsync<MeResponse>("/me");
+        var checkIn = await (await player.PostJsonAsync("/check-ins", new { ytdPercent = 3m })).ReadAsync<CheckInResponse>();
+
+        Assert.Equal(new CheckInWindowResponse(new DateOnly(2026, 9, 21), StockholmTime.ToOffset(new DateTime(2026, 9, 22, 9, 0, 0))), me.OpenWindow);
+        Assert.Equal(new DateOnly(2026, 9, 21), checkIn.ForDate);
+
+        // After 09:00 Monday's check-in is immutable; the next window opens at 22:30.
+        Factory.Time.SetUtcNow(StockholmTime.ToOffset(new DateTime(2026, 9, 22, 9, 0, 0)));
+        var closed = await player.PostJsonAsync("/check-ins", new { ytdPercent = 4m });
+
+        Assert.Equal(HttpStatusCode.Conflict, closed.StatusCode);
+        var problem = await closed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("check_in_closed", problem.GetProperty("code").GetString());
+        Assert.Equal(StockholmTime.ToOffset(new DateTime(2026, 9, 22, 22, 30, 0)), problem.GetProperty("nextWindowOpensAt").GetDateTimeOffset());
+        me = await player.GetAsync<MeResponse>("/me");
+        Assert.Null(me.OpenWindow);
+        Assert.Equal(StockholmTime.ToOffset(new DateTime(2026, 9, 22, 22, 30, 0)), me.NextWindowOpensAt);
+        Assert.Equal(new CheckInResponse(new DateOnly(2026, 9, 21), 3m), me.LastCheckIn);
+    }
+
+    [Fact]
+    public async Task Weekly_league_opens_check_in_on_friday_evening_only()
+    {
+        var player = await Factory.NewPlayerAsync("Anna");
+        await CreateLeagueAsync(player, Cadence.Weekly);
+
+        var monday = await player.PostJsonAsync("/check-ins", new { ytdPercent = 1m });
+        Assert.Equal(HttpStatusCode.Conflict, monday.StatusCode);
+        Assert.Equal(StockholmTime.ToOffset(new DateTime(2026, 9, 25, 22, 30, 0)), (await player.GetAsync<MeResponse>("/me")).NextWindowOpensAt);
+
+        Factory.Time.SetUtcNow(StockholmTime.ToOffset(new DateTime(2026, 9, 27, 15, 0, 0))); // Sunday afternoon
+        var sunday = await (await player.PostJsonAsync("/check-ins", new { ytdPercent = 1m })).ReadAsync<CheckInResponse>();
+        Assert.Equal(new DateOnly(2026, 9, 25), sunday.ForDate);
     }
 
     [Fact]
@@ -171,6 +213,7 @@ public class MeAndCheckInTests(SqlServerFixture sql) : ApiTestBase(sql)
         var anna = await Factory.NewPlayerAsync("Anna");
         var league = await CreateLeagueAsync(anna);
         var bertil = await JoinedPlayerAsync("Bertil", league);
+        SetDate(2026, 9, 25); // a Friday, inside the weekly window
         await CheckInAsync(anna, 5m);
 
         var response = await anna.DeleteAsync("/me");

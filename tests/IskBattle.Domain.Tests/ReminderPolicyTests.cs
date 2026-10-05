@@ -5,6 +5,7 @@ namespace IskBattle.Domain.Tests;
 
 public class ReminderPolicyTests
 {
+    // Offsets don't matter: the policy reads the Stockholm wall-clock time.
     private static DateTimeOffset At(int y, int m, int d, int hour, int minute = 0) =>
         new(y, m, d, hour, minute, 0, TimeSpan.FromHours(2));
 
@@ -12,88 +13,67 @@ public class ReminderPolicyTests
         ReminderPolicy.Evaluate(cadence, now, latest);
 
     [Theory]
-    [InlineData(17, 59, false)]
-    [InlineData(18, 0, true)]
-    [InlineData(23, 45, true)]
-    public void Daily_from_18_on_trading_days(int hour, int minute, bool due) =>
-        Assert.Equal(new ReminderDecision("D:2026-09-21", due), Evaluate(Cadence.Daily, At(2026, 9, 21, hour, minute)));
+    [InlineData(2026, 9, 22, 7, 59, false)]
+    [InlineData(2026, 9, 22, 8, 0, true)]  // Tuesday 08:00, reporting on Monday
+    [InlineData(2026, 9, 22, 8, 45, true)] // catch-up inside the window
+    [InlineData(2026, 9, 22, 9, 0, false)] // window closed
+    public void Daily_at_0800_for_the_previous_trading_day(int y, int m, int d, int hour, int minute, bool due) =>
+        Assert.Equal(new ReminderDecision("D:2026-09-21", due), Evaluate(Cadence.Daily, At(y, m, d, hour, minute)));
 
     [Fact]
-    public void Daily_not_due_after_checking_in_today() =>
-        Assert.False(Evaluate(Cadence.Daily, At(2026, 9, 21, 18), D(2026, 9, 21)).IsDue);
-
-    [Fact]
-    public void Daily_due_when_last_check_in_was_yesterday() =>
-        Assert.True(Evaluate(Cadence.Daily, At(2026, 9, 22, 18), D(2026, 9, 21)).IsDue);
-
-    [Fact]
-    public void Daily_never_on_weekends() =>
-        Assert.False(Evaluate(Cadence.Daily, At(2026, 9, 26, 19)).IsDue);
-
-    [Theory]
-    [InlineData(2026, 9, 24, 20, false)] // Thursday
-    [InlineData(2026, 9, 25, 17, false)] // Friday before 18
-    [InlineData(2026, 9, 25, 18, true)]
-    [InlineData(2026, 9, 27, 12, true)]  // Sunday catch-up, same window
-    public void Weekly_from_friday_18(int y, int m, int d, int hour, bool due) =>
-        Assert.Equal(new ReminderDecision("W:2026-09-21", due), Evaluate(Cadence.Weekly, At(y, m, d, hour)));
-
-    [Theory]
-    [InlineData(2026, 9, 21, false)] // Monday this week
-    [InlineData(2026, 9, 20, true)]  // Sunday last week
-    public void Weekly_counts_check_ins_since_monday(int y, int m, int d, bool due) =>
-        Assert.Equal(due, Evaluate(Cadence.Weekly, At(2026, 9, 25, 18), D(y, m, d)).IsDue);
-
-    // 2026-W53 runs Mon 28 Dec – Sun 3 Jan and is split at New Year into two windows.
-    [Theory]
-    [InlineData(2026, 12, 30, 20, "W:2026-12-28", false)] // Wednesday
-    [InlineData(2026, 12, 31, 17, "W:2026-12-28", false)]
-    [InlineData(2026, 12, 31, 18, "W:2026-12-28", true)]  // last trading day of the season
-    [InlineData(2027, 1, 1, 17, "W:2027-01-01", false)]
-    [InlineData(2027, 1, 1, 18, "W:2027-01-01", true)]    // the new season's part, reminded on Friday
-    [InlineData(2027, 1, 3, 12, "W:2027-01-01", true)]
-    public void Week_split_at_new_year_has_a_window_per_season(int y, int m, int d, int hour, string key, bool due) =>
-        Assert.Equal(new ReminderDecision(key, due), Evaluate(Cadence.Weekly, At(y, m, d, hour)));
-
-    [Fact]
-    public void Check_ins_in_the_old_season_do_not_count_for_the_new_seasons_part()
+    public void Daily_on_saturday_for_friday_and_never_on_sunday_or_monday_morning()
     {
-        Assert.False(Evaluate(Cadence.Weekly, At(2026, 12, 31, 18), D(2026, 12, 29)).IsDue);
-        Assert.True(Evaluate(Cadence.Weekly, At(2027, 1, 1, 18), D(2026, 12, 31)).IsDue);
-        Assert.False(Evaluate(Cadence.Weekly, At(2027, 1, 1, 18), D(2027, 1, 1)).IsDue);
-    }
-
-    [Fact]
-    public void Season_part_of_a_week_without_trading_days_gets_no_reminder()
-    {
-        // 2028 starts on a Saturday: its part of 2027-W52 is only the weekend.
-        Assert.Equal(new ReminderDecision("W:2028-01-01", false), Evaluate(Cadence.Weekly, At(2028, 1, 1, 18)));
-        Assert.False(Evaluate(Cadence.Weekly, At(2028, 1, 2, 18)).IsDue);
-        // The 2027 part (Mon 27 – Fri 31 Dec) is reminded on Friday as usual.
-        Assert.Equal(new ReminderDecision("W:2027-12-27", true), Evaluate(Cadence.Weekly, At(2027, 12, 31, 18)));
+        Assert.Equal(new ReminderDecision("D:2026-09-25", true), Evaluate(Cadence.Daily, At(2026, 9, 26, 8)));
+        Assert.False(Evaluate(Cadence.Daily, At(2026, 9, 27, 8)).IsDue);
+        Assert.False(Evaluate(Cadence.Daily, At(2026, 9, 28, 8)).IsDue);
     }
 
     [Theory]
-    [InlineData(2026, 9, 29, 20, false)] // Tuesday
-    [InlineData(2026, 9, 30, 17, false)] // last weekday, before 18
-    [InlineData(2026, 9, 30, 18, true)]
-    public void Monthly_on_last_weekday_of_month(int y, int m, int d, int hour, bool due) =>
-        Assert.Equal(new ReminderDecision("M:2026-09", due), Evaluate(Cadence.Monthly, At(y, m, d, hour)));
+    [InlineData(2026, 9, 21, false)] // checked in for that trading day
+    [InlineData(2026, 9, 18, true)]  // last check-in was the Friday before
+    public void Daily_only_when_the_trading_day_is_missing(int y, int m, int d, bool due) =>
+        Assert.Equal(due, Evaluate(Cadence.Daily, At(2026, 9, 22, 8), D(y, m, d)).IsDue);
+
+    [Theory]
+    [InlineData(2026, 9, 26, 7, false)]
+    [InlineData(2026, 9, 26, 8, true)]  // Saturday 08:00
+    [InlineData(2026, 9, 27, 23, true)] // Sunday catch-up
+    [InlineData(2026, 9, 28, 8, false)] // Monday: the window has closed
+    public void Weekly_on_saturday_for_friday(int y, int m, int d, int hour, bool due) =>
+        Assert.Equal(new ReminderDecision("W:2026-09-25", due), Evaluate(Cadence.Weekly, At(y, m, d, hour)));
 
     [Fact]
-    public void Monthly_last_weekday_skips_weekend()
+    public void Weekly_never_midweek() =>
+        Assert.False(Evaluate(Cadence.Weekly, At(2026, 9, 23, 8)).IsDue);
+
+    [Fact]
+    public void Monthly_the_day_after_the_last_trading_day()
     {
-        // October 2026 ends on Saturday; the reminder is Friday the 30th, and the weekend still catches up.
-        Assert.True(Evaluate(Cadence.Monthly, At(2026, 10, 30, 18)).IsDue);
-        Assert.True(Evaluate(Cadence.Monthly, At(2026, 10, 31, 10)).IsDue);
-        Assert.False(Evaluate(Cadence.Monthly, At(2026, 10, 29, 18)).IsDue);
+        Assert.Equal(new ReminderDecision("M:2026-09-30", true), Evaluate(Cadence.Monthly, At(2026, 10, 1, 8)));
+        Assert.False(Evaluate(Cadence.Monthly, At(2026, 9, 30, 8)).IsDue);
+        // October ends on a Saturday: last trading day Friday 30 Oct, reminder Saturday, catch-up until Monday 09:00.
+        Assert.True(Evaluate(Cadence.Monthly, At(2026, 10, 31, 8)).IsDue);
+        Assert.True(Evaluate(Cadence.Monthly, At(2026, 11, 2, 8, 30)).IsDue);
+        Assert.False(Evaluate(Cadence.Monthly, At(2026, 11, 2, 9)).IsDue);
     }
 
     [Fact]
-    public void Monthly_not_due_after_check_in_this_month() =>
-        Assert.False(Evaluate(Cadence.Monthly, At(2026, 9, 30, 18), D(2026, 9, 1)).IsDue);
+    public void Monthly_not_due_after_check_in_for_the_last_trading_day() =>
+        Assert.False(Evaluate(Cadence.Monthly, At(2026, 10, 1, 8), D(2026, 9, 30)).IsDue);
+
+    [Theory]
+    [InlineData(Cadence.Daily, "D:2026-12-31")]
+    [InlineData(Cadence.Weekly, "W:2026-12-31")]
+    [InlineData(Cadence.Monthly, "M:2026-12-31")]
+    public void Season_end_reminder_goes_out_at_2000_on_the_last_trading_day(Cadence cadence, string key)
+    {
+        Assert.False(Evaluate(cadence, At(2026, 12, 31, 19, 59)).IsDue);
+        Assert.Equal(new ReminderDecision(key, true), Evaluate(cadence, At(2026, 12, 31, 20)));
+        Assert.True(Evaluate(cadence, At(2026, 12, 31, 23, 59)).IsDue);
+        Assert.False(Evaluate(cadence, At(2027, 1, 1, 8)).IsDue); // the season's window closed at midnight
+    }
 
     [Fact]
-    public void Unknown_cadence_throws() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => Evaluate((Cadence)9, At(2026, 9, 21, 18)));
+    public void New_seasons_first_friday_is_reminded_on_saturday() =>
+        Assert.Equal(new ReminderDecision("W:2027-01-01", true), Evaluate(Cadence.Weekly, At(2027, 1, 2, 8)));
 }

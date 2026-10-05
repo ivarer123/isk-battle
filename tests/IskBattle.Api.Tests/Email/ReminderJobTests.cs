@@ -19,8 +19,8 @@ public class ReminderJobTests(SqlServerFixture sql)
 
     private readonly RecordingEmailSender _emails = new();
 
-    // Friday 25 September 2026, 18:30 in Stockholm (CEST).
-    private readonly TestClock _clock = new(new DateTimeOffset(2026, 9, 25, 16, 30, 0, TimeSpan.Zero));
+    // Saturday 26 September 2026, 08:30 in Stockholm (CEST): reminders for Friday the 25th are due.
+    private readonly TestClock _clock = new(new DateTimeOffset(2026, 9, 26, 6, 30, 0, TimeSpan.Zero));
 
     private ReminderJob Job()
     {
@@ -58,7 +58,7 @@ public class ReminderJobTests(SqlServerFixture sql)
     private int SentTo(User user) => _emails.Sent.Count(e => e.To == user.Email);
 
     [Fact]
-    public async Task Weekly_player_without_check_in_this_week_is_reminded_once()
+    public async Task Weekly_player_without_check_in_for_friday_is_reminded_once()
     {
         var anna = await PlayerAsync(Cadence.Weekly, checkIn: new DateOnly(2026, 9, 18));
 
@@ -70,7 +70,7 @@ public class ReminderJobTests(SqlServerFixture sql)
         Assert.Equal("Dags att uppdatera din utveckling", email.Subject);
         Assert.StartsWith("https://api.test/unsubscribe?token=", email.UnsubscribeUrl);
         await using var db = sql.CreateDbContext();
-        Assert.Equal("W:2026-09-21", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
+        Assert.Equal("W:2026-09-25", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class ReminderJobTests(SqlServerFixture sql)
         var anna = await PlayerAsync(Cadence.Weekly);
         await Job().RunAsync(Ct);
 
-        _clock.SetUtcNow(new DateTimeOffset(2026, 10, 2, 16, 30, 0, TimeSpan.Zero));
+        _clock.SetUtcNow(new DateTimeOffset(2026, 10, 3, 6, 30, 0, TimeSpan.Zero));
         await Job().RunAsync(Ct);
 
         Assert.Equal(2, SentTo(anna));
@@ -98,11 +98,11 @@ public class ReminderJobTests(SqlServerFixture sql)
     [Fact]
     public async Task No_reminder_for_checked_in_opted_out_league_less_or_pending_players()
     {
-        var checkedIn = await PlayerAsync(Cadence.Weekly, checkIn: new DateOnly(2026, 9, 21));
+        var checkedIn = await PlayerAsync(Cadence.Weekly, checkIn: new DateOnly(2026, 9, 25));
         var optedOut = await PlayerAsync(Cadence.Weekly, reminders: false);
         var noLeague = await PlayerAsync(null);
         var pending = await PlayerAsync(Cadence.Weekly, status: MemberStatus.Pending);
-        var monthly = await PlayerAsync(Cadence.Monthly); // reminded on 30 Sep, not today
+        var monthly = await PlayerAsync(Cadence.Monthly); // reminded on 1 Oct, not today
 
         await Job().RunAsync(Ct);
 

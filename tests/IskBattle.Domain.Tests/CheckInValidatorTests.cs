@@ -9,11 +9,13 @@ public class CheckInValidatorTests
 {
     private static readonly Guid User = Guid.NewGuid();
 
-    // 2026-09-21 12:00 in Stockholm (CEST, UTC+2).
-    private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 21, 10, 0, 0, TimeSpan.Zero));
+    // Monday 2026-09-21 22:45 in Stockholm (CEST, UTC+2): the Daily window for that day is open.
+    private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 21, 20, 45, 0, TimeSpan.Zero));
+
+    private Cadence[] _cadences = [];
 
     private CheckInValidation Validate(decimal ytd, bool confirmed = false, params CheckIn[] history) =>
-        CheckInValidator.Validate(ytd, history, _time, confirmed);
+        CheckInValidator.Validate(ytd, history, _time, _ => _cadences, confirmed);
 
     [Theory]
     [InlineData(-99.99)]
@@ -62,11 +64,11 @@ public class CheckInValidatorTests
     }
 
     [Fact]
-    public void Overwriting_today_compares_with_previous_date_not_today()
+    public void Overwriting_within_the_window_compares_with_the_previous_trading_day()
     {
         var result = Validate(12m, false,
             CheckIn(User, D(2026, 9, 18), 10m),
-            CheckIn(User, D(2026, 9, 21), 40m)); // today's typo being corrected
+            CheckIn(User, D(2026, 9, 21), 40m)); // a typo being corrected while the window is open
 
         Assert.Equal(new CheckInValidation(CheckInOutcome.Accepted, D(2026, 9, 21), true, 10m), result);
     }
@@ -74,7 +76,7 @@ public class CheckInValidatorTests
     [Fact]
     public void First_check_in_of_season_never_requires_confirmation()
     {
-        _time.SetUtcNow(new DateTimeOffset(2027, 1, 4, 17, 0, 0, TimeSpan.Zero));
+        _time.SetUtcNow(new DateTimeOffset(2027, 1, 4, 21, 45, 0, TimeSpan.Zero)); // Monday 22:45 CET
 
         var result = Validate(0.3m, false, CheckIn(User, D(2026, 12, 31), 45m));
 
@@ -82,11 +84,31 @@ public class CheckInValidatorTests
     }
 
     [Fact]
-    public void Today_is_the_stockholm_date()
+    public void Morning_check_in_reports_on_the_previous_trading_day()
     {
-        // 23:30 UTC on 31 Dec is 00:30 on 1 Jan in Stockholm (CET, UTC+1).
-        _time.SetUtcNow(new DateTimeOffset(2026, 12, 31, 23, 30, 0, TimeSpan.Zero));
+        _time.SetUtcNow(new DateTimeOffset(2026, 9, 22, 6, 30, 0, TimeSpan.Zero)); // Tuesday 08:30 CEST
 
-        Assert.Equal(D(2027, 1, 1), Validate(1m).ForDate);
+        Assert.Equal((CheckInOutcome.Accepted, D(2026, 9, 21)), (Validate(1m).Outcome, Validate(1m).ForDate));
+    }
+
+    [Fact]
+    public void Outside_a_window_is_rejected_with_the_next_opening()
+    {
+        _time.SetUtcNow(new DateTimeOffset(2026, 9, 22, 10, 0, 0, TimeSpan.Zero)); // Tuesday 12:00 CEST
+
+        var result = Validate(1m);
+
+        Assert.Equal(CheckInOutcome.WindowClosed, result.Outcome);
+        Assert.Equal(new DateTime(2026, 9, 22, 22, 30, 0), result.NextWindow!.Opens);
+    }
+
+    [Fact]
+    public void Weekly_only_player_cannot_check_in_midweek_but_can_on_saturday()
+    {
+        _cadences = [Cadence.Weekly];
+
+        Assert.Equal(CheckInOutcome.WindowClosed, Validate(1m).Outcome); // Monday 22:45
+        _time.SetUtcNow(new DateTimeOffset(2026, 9, 26, 13, 0, 0, TimeSpan.Zero)); // Saturday 15:00
+        Assert.Equal((CheckInOutcome.Accepted, D(2026, 9, 25)), (Validate(1m).Outcome, Validate(1m).ForDate));
     }
 }

@@ -66,7 +66,7 @@ public class User
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public bool EmailRemindersEnabled { get; set; } = true;
-    public string? LastReminderWindowKey { get; set; } // e.g. "D:2026-09-21", "W:2026-09-14", "M:2026-09"
+    public string? LastReminderWindowKey { get; set; } // e.g. "D:2026-09-21", "W:2026-09-25", "M:2026-09-30"
     public DateTimeOffset CreatedAt { get; set; }
 }
 
@@ -181,10 +181,10 @@ Display names and league names are rejected (`name_not_allowed`) if they contain
 
 | Method | Route | Notes |
 |---|---|---|
-| GET | `/me` | Profile + effective cadence |
+| GET | `/me` | Profile, effective cadence, open check-in window and next opening |
 | PATCH | `/me` | `displayName`, `emailRemindersEnabled` |
 | DELETE | `/me` | GDPR delete: removes user, check-ins, memberships (with ownership transfer); nulls `Purchase.BuyerUserId` |
-| POST | `/check-ins` | `{ ytdPercent, confirmed }` → 422 with `requiresConfirmation` if jump > threshold and not confirmed |
+| POST | `/check-ins` | `{ ytdPercent, confirmed }` → stored for the open window's trading day; 409 `check_in_closed` outside windows; 422 with `requiresConfirmation` if jump > threshold and not confirmed |
 | GET | `/me/check-ins?season=2026` | Own history |
 | POST | `/leagues` | `{ name, cadence }` → caller becomes Owner |
 | GET | `/leagues` | Leagues the caller belongs to (Active or Pending) |
@@ -236,7 +236,7 @@ Emails are sent through an `IEmailSender` abstraction:
 
 Templates (Swedish, plain HTML + text): `CheckInReminder`, `JoinPending`, `MemberActivated`. Each contains an unsubscribe link with an HMAC-signed token (confirm page on GET, change on POST) and RFC 8058 `List-Unsubscribe-Post` headers.
 
-Weekly windows are season-aware: the window key is the first day of the week within the season (`W:2026-12-28`, `W:2027-01-01` for the two parts of 2026-W53), and each part is reminded at 18:00 on its last trading day up to Friday.
+Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`: `For(tradingDay, cadence)`, `Open(now, cadencesForSeason)` (union of the player's active leagues' cadences, Daily if none) and `Next(...)`. `CheckInValidator` stores a check-in against the open window's trading day and returns `WindowClosed` otherwise (API: 409 `check_in_closed` with `nextWindowOpensAt`). `GET /me` returns `openWindow { tradingDay, closesAt }` and `nextWindowOpensAt`. `ReminderPolicy` keys windows by cadence and trading day (`W:2026-09-25`) and reminds at 08:00 the day after (20:00 on the season's last trading day). Times are tunables in `GameConfig`.
 
 `EmailOptions` and `AppLinkOptions` are validated at startup (`ValidateOnStart`): unsubscribe key ≥ 32 chars, Acs needs sender + endpoint/connection string, links must be absolute URLs. A missing Key Vault secret fails the deployment rather than returning 500 from the Stripe webhook. Build-time OpenAPI generation skips this check.
 

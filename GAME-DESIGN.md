@@ -26,11 +26,64 @@ A season-long competition between friends (or communities) based on the developm
 
 - A check-in is a single value: **YTD % on the player's main ISK**, e.g. `+12.40` or `-3.15`.
 - Check-ins belong to the **player**, not the league. One check-in applies to every league the player is in.
-- Stored against the player's local date (Europe/Stockholm). One check-in per player per date; re-submitting the same day overwrites.
-- Only today's check-in may be edited. Past check-ins are immutable.
+- Stored against the **trading day it reports on**, and only accepted while a check-in window is open (§4a). One check-in per player per trading day; re-submitting within the open window overwrites. Once the window closes the check-in is immutable.
 - Allowed range: `-99.99` to `+1000.00`.
 - If the new value differs from the previous check-in by more than **20 percentage points**, the UI asks for confirmation (typo guard, not anti-cheat).
 - Onboarding copy explains which account to use (Swedish, approximately): *"Välj ditt huvudsakliga ISK-konto och använd alltid samma. Ange utvecklingen i procent för i år, som du hittar på kontoöversikten hos din bank eller mäklare."*
+
+## 4a. Check-in windows and trading-day attribution
+
+A check-in is attributed to the **trading day it reports on**, not to the date it
+was submitted. This matters because players hold instruments on markets that
+close at different times: Stockholm closes at 17:30, the US at 22:00 (21:00
+during the two annual weeks when Europe and the US are out of sync on daylight
+saving). A figure read at 17:30 by a player holding US equities is a mid-session
+number, and is not comparable with another player's reading at 23:00.
+
+All windows are Europe/Stockholm.
+
+| Cadence | Window opens | Window closes | Attributed to |
+|---|---|---|---|
+| Daily | 22:30 on a trading day | 09:00 the next day | That trading day |
+| Weekly | Friday 22:30 | Sunday 23:59 | That Friday |
+| Monthly | 22:30 on the last trading day of the month | 09:00 on the next trading day | That last trading day |
+
+- 22:30 clears the US close with margin in both DST configurations.
+- The window closes before Stockholm opens at 09:00, so a submitted figure can
+  never contain movement from the following trading day.
+- Prices do not move at the weekend, so the weekly window's long tail is safe:
+  a Friday evening reading and a Sunday afternoon reading are the same number.
+- Submissions outside an open window are rejected, with the UI showing when the
+  next window opens.
+- Only one check-in per player per trading day. Re-submitting within the same
+  open window overwrites the previous value. Once a window closes, that
+  check-in is immutable.
+- Known imperfection, accepted: fund NAVs post late and some foreign funds
+  settle a day behind, so fund-heavy portfolios lag slightly. This evens out
+  over a season and is not worth correcting in a trust-based game.
+
+### Clarifications
+
+- **Several cadences:** a player may check in whenever *any* of their active leagues' cadences has an open window (the union). A Daily + Weekly player can still report Friday on Saturday afternoon; a Weekly-only player can't check in Monday–Thursday. All windows open at 22:30 on their trading day, so open windows always report on the same trading day.
+- **No active league** (new player, or only Pending): Daily windows apply, so they can get started.
+- **Monthly close:** 09:00 on the first trading day after the month's last trading day (Wed 30 Sep → Thu 1 Oct 09:00; Fri 30 Oct → Mon 2 Nov 09:00), so it also never includes the next trading day.
+- **Season end:** brokers reset "i år" at midnight on New Year's Eve. The year's last trading day has a window for **every** cadence (so Weekly leagues also get the season's final figure, e.g. Thu 31 Dec 2026), and no window reporting on a December day stays open past 23:59 on 31 Dec. 31 Dec is not a Nasdaq Stockholm trading day, but v1 treats all weekdays as trading days.
+- The typo guard compares with the most recent check-in for an earlier trading day in the same season.
+
+### Reminders
+
+Reminders are sent at **08:00**, inside the open window, to players who have not
+yet submitted. A 22:30 notification would be antisocial, and a morning reminder
+is a better habit anchor.
+
+| Effective cadence | Reminder | Condition |
+|---|---|---|
+| Daily | 08:00 Tue–Sat (reporting on the previous trading day) | No check-in for that trading day |
+| Weekly | 08:00 Saturday | No check-in for that Friday |
+| Monthly | 08:00 on the day after the last trading day of the month | No check-in for that day |
+
+- **Season end:** the final window closes at midnight, so its reminder goes out at **20:00 on the year's last trading day** (all cadences), before the window opens at 22:30.
+- A reminder missed at its time (e.g. the job was down) is still sent while the window is open.
 
 ## 5. Cadence
 
@@ -136,19 +189,11 @@ Premium is a **permanent, one-time** purchase attached to the **league**, not th
 
 ## 9. Notifications (email)
 
-Reminders are per **player**, based on the most frequent cadence among their active leagues. At most one reminder per check-in window.
-
-| Effective cadence | Reminder sent (Europe/Stockholm) | Condition |
-|---|---|---|
-| Daily | Mon–Fri 18:00 | No check-in today |
-| Weekly | Friday 18:00 | No check-in since Monday |
-| Monthly | Last weekday of the month 18:00 | No check-in this month |
+Reminders are per **player**, based on the most frequent cadence among their active leagues. At most one reminder per check-in window. When and on what condition: see §4a "Reminders".
 
 Other emails: join pending (to owner and co-hosts), member activated (to the joiner). Every email has a one-click unsubscribe link. Players can turn reminders off in settings. Payment receipts are sent by Stripe.
 
 - One email switch per player covers all ISK Battle email; the unsubscribe link turns it off. Hosts who opted out still see pending members in the app.
-- Each reminder window is open from its reminder time until the window ends (e.g. Friday 18:00 – Sunday for Weekly), so a missed run catches up once.
-- A week split at New Year is two windows, one per season. The old season's part is reminded at 18:00 on its last trading day (e.g. Thu 31 Dec 2026), the new season's part on its last trading day up to Friday (e.g. Fri 1 Jan 2027). Only check-ins within the part count. A part with no trading day gets no reminder.
 - The unsubscribe link opens a confirm page; email is turned off only when the player confirms (link-scanning mail filters must not unsubscribe anyone). Mail clients' one-click unsubscribe still works directly.
 
 ## 10. Explicit non-goals (v1)
@@ -182,3 +227,5 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-10-05 | Week split at New Year has one reminder window per season; old season's part reminded on its last trading day |
 | 2026-10-05 | Pending-join email to hosts once per player and league; names may not contain links or control characters |
 | 2026-10-05 | Unsubscribe link shows a confirm page; the change happens on POST |
+| 2026-10-05 | §4a check-in windows: attributed to the trading day; 22:30 opens, 09:00 / Sunday close; reminders at 08:00. Supersedes "stored against today's date" and the 18:00 reminders (incl. the same-day New Year split-week rule) |
+| 2026-10-05 | Windows are the union of the player's cadences; Daily with no active league; Monthly closes 09:00 next trading day; season end = window for all cadences closing 23:59 on 31 Dec, reminder 20:00 |

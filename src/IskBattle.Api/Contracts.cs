@@ -11,7 +11,12 @@ public sealed record MeResponse(
     bool EmailRemindersEnabled,
     Cadence? EffectiveCadence,
     DateOnly Today,
-    CheckInResponse? LastCheckIn);
+    CheckInResponse? LastCheckIn,
+    CheckInWindowResponse? OpenWindow,
+    DateTimeOffset NextWindowOpensAt);
+
+/// <param name="TradingDay">The trading day a check-in submitted now reports on.</param>
+public sealed record CheckInWindowResponse(DateOnly TradingDay, DateTimeOffset ClosesAt);
 
 public sealed record UpdateMeRequest(string? DisplayName, bool? EmailRemindersEnabled);
 

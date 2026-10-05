@@ -37,7 +37,7 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 A full code review (2026-10-05) was followed by a fix commit (overcharge refunds, startup config validation,
 New Year reminder windows, pending-join email spam, oid, 400s for out-of-range dates, unsubscribe confirm page).
 
-Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 276 .NET + 18 web, all green;
+Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 293 .NET + 18 web, all green;
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
@@ -90,8 +90,11 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
   Concurrent same-tier buyer → `NeedsRefund`; overtaken by a smaller upgrade → `PaidNeedsPartialRefund`; both set
   `Purchase.RefundDueOre` (manual refund). Checkout returns 503 when Stripe keys are missing.
 - Users keyed on Entra `oid`. Email/link options validated at startup (skipped for build-time OpenAPI generation).
-- Weekly reminder windows are season-aware (key = first day of the week in the season). Hosts get one pending-join
-  email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control chars in display and league
+- Check-in windows (GAME-DESIGN §4a, `CheckInWindows`): check-ins attributed to the trading day, open 22:30, close
+  09:00 (Daily/Monthly next trading day) or Sunday midnight (Weekly); union of the player's cadences, Daily with no
+  league; season end = window for all cadences closing at midnight 31 Dec. Reminders 08:00 the day after (20:00 on
+  the season's last trading day). API tests' clock defaults to Monday 22:45 so the Daily window is open.
+- Hosts get one pending-join email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control chars in display and league
   names. Unsubscribe GET = confirm page, POST = change.
 
 ## Environment gotchas
