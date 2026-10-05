@@ -14,6 +14,7 @@ export function Home() {
   const [checkingIn, setCheckingIn] = useState(false);
   const last = me.data?.lastCheckIn ?? null;
   const openWindow = me.data?.openWindow ?? null;
+  const today = me.data?.today ?? '';
   // A check-in for the open window's trading day can still be changed until the window closes.
   const current = openWindow !== null && last?.forDate === openWindow.tradingDay ? last : null;
 
@@ -22,17 +23,17 @@ export function Home() {
       <section className="card checkin">
         <h2>{t('home.checkInTitle')}</h2>
         {openWindow === null ? (
-          me.data && <p>{t('home.checkInClosed', { opens: formatStockholmDateTime(me.data.nextWindowOpensAt) })}</p>
+          me.data && <p>{t('home.checkInClosed', { opens: formatStockholmDateTime(me.data.nextWindowOpensAt, today) })}</p>
         ) : current !== null ? (
           <p>
             {t('home.checkInDone', {
               day: formatWeekdayDayMonth(openWindow.tradingDay),
               value: formatPercent(current.ytdPercent),
-              closes: formatStockholmDateTime(openWindow.closesAt),
+              closes: formatStockholmDateTime(openWindow.closesAt, today),
             })}
           </p>
         ) : (
-          <p>{t('home.checkInOpen', { day: formatWeekdayDayMonth(openWindow.tradingDay), closes: formatStockholmDateTime(openWindow.closesAt) })}</p>
+          <p>{t('home.checkInOpen', { day: formatWeekdayDayMonth(openWindow.tradingDay), closes: formatStockholmDateTime(openWindow.closesAt, today) })}</p>
         )}
         {current === null && (
           <p className="muted small">

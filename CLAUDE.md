@@ -109,7 +109,9 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
 - After API contract changes: build the API (regenerates openapi.json), then `npm run generate:api` in src/web.
   CI fails if either generated file is uncommitted.
 - Local run: SQL container `isk-battle-sql` on 1433 (password in appsettings.Development.json), API on :5080 with
-  `--launch-profile http`, Vite on :5173 proxying `/api`. Dev sign-in sends `X-Dev-User`.
+  `--launch-profile http`, Vite on :5173 proxying `/api`. Dev sign-in sends `X-Dev-User`. `Dev__Now=<ISO instant>`
+  shifts the API clock in Development (`DevClock`) to try windows at other times. No `chromium-cli` here: drive the
+  UI with Playwright from a scratch folder (cached browser `~/Library/Caches/ms-playwright/chromium-1117`).
 
 ## Next steps
 

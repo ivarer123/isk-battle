@@ -28,6 +28,13 @@ In Development the API accepts a dev sign-in (`Auth:DevMode`): the web app asks 
 `X-Dev-User`. Open the site in two browsers (or a private window) to play as two players. The API refuses to
 start with DevMode outside Development.
 
+To try check-in windows and reminders at another time, start the API with a fake clock (Development only; the
+clock keeps running from that instant):
+
+```sh
+Dev__Now=2026-10-06T08:30:00+02:00 dotnet run --project src/IskBattle.Api --launch-profile http
+```
+
 The API build regenerates `src/web/src/api/openapi.json`; run `npm run generate:api` in `src/web` to update the
 typed client.
 
