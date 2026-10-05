@@ -35,6 +35,20 @@ clock keeps running from that instant):
 Dev__Now=2026-10-06T08:30:00+02:00 dotnet run --project src/IskBattle.Api --launch-profile http
 ```
 
+Run the reminder job once (it exits without touching the database unless it is 08:00–08:59 Stockholm, or
+20:00–20:59 on the year's last trading day; reminders are printed to the console in Development):
+
+```sh
+DOTNET_ENVIRONMENT=Development Dev__Now=2026-10-17T08:30:00+02:00 dotnet run --project src/IskBattle.Jobs -- reminders
+```
+
+### Container image
+
+```sh
+docker build -t isk-battle .                                                              # API + reminder job
+docker run --entrypoint dotnet isk-battle /app/jobs/IskBattle.Jobs.dll reminders          # the job
+```
+
 The API build regenerates `src/web/src/api/openapi.json`; run `npm run generate:api` in `src/web` to update the
 typed client.
 

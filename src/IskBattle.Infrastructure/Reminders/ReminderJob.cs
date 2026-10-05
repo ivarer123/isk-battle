@@ -10,8 +10,10 @@ using Microsoft.Extensions.Logging;
 namespace IskBattle.Infrastructure.Reminders;
 
 /// <summary>
-/// Sends check-in reminders (ARCHITECTURE.md §8). Safe to run concurrently and repeatedly: each user's
-/// window is claimed with a conditional update before sending, so at most one reminder goes out per window.
+/// Sends check-in reminders (ARCHITECTURE.md §8). Runs on a cron schedule; outside the reminder run times it
+/// returns before touching the database, so SQL serverless can stay auto-paused. Safe to run concurrently and
+/// repeatedly: each user's window is claimed with a conditional update before sending, so at most one reminder
+/// goes out per window.
 /// </summary>
 public sealed partial class ReminderJob(
     IskBattleDbContext db,
@@ -23,6 +25,11 @@ public sealed partial class ReminderJob(
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
         var now = StockholmTime.Now(time);
+        if (!ReminderPolicy.IsRunTime(now))
+        {
+            LogNotRunTime(now);
+            return 0;
+        }
         var season = now.Year;
 
         var candidates = await db.Users
@@ -79,6 +86,9 @@ public sealed partial class ReminderJob(
 
     [LoggerMessage(LogLevel.Error, "Failed to send reminder to user {UserId}")]
     private partial void LogSendFailed(Exception exception, Guid userId);
+
+    [LoggerMessage(LogLevel.Information, "Not a reminder run time ({StockholmNow}); exiting without database access")]
+    private partial void LogNotRunTime(DateTimeOffset stockholmNow);
 
     [LoggerMessage(LogLevel.Information, "Reminders sent: {Sent} of {Candidates} candidates")]
     private partial void LogRun(int sent, int candidates);

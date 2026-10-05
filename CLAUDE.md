@@ -37,7 +37,7 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 A full code review (2026-10-05) was followed by a fix commit (overcharge refunds, startup config validation,
 New Year reminder windows, pending-join email spam, oid, 400s for out-of-range dates, unsubscribe confirm page).
 
-Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 293 .NET + 18 web, all green;
+Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 302 .NET + 23 web, all green;
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
@@ -60,8 +60,9 @@ src/IskBattle.Infrastructure  EF Core (SQL Server) + migrations, CheckInQueries.
 src/IskBattle.Api             Minimal API. Auth/{CurrentUser upsert filter, DevAuthHandler}, Leagues/LeagueAccess
                               (endpoint-filter authorization, rowversion save), Endpoints/*, Contracts.cs, Problems.cs.
                               Build writes OpenAPI to src/web/src/api/openapi.json
-src/IskBattle.Functions       Isolated worker, CheckInReminders timer every 15 min -> ReminderJob. TO BE REPLACED by
-                              IskBattle.Jobs console (`reminders`, Container Apps Job cron) – see ARCHITECTURE §8
+src/IskBattle.Jobs            Console (generic host): `reminders` -> ReminderJob; Container Apps Job on UTC cron
+                              0 6,7 * * * and 0 18,19 29-31 12 *. ReminderPolicy.IsRunTime gates before any DB access.
+Dockerfile                    One image: /app/api (default entrypoint, :8080) + /app/jobs; job overrides the command
 src/web                       Vite + React 19 + TS 5.9 + React Router 7 + TanStack Query, PWA, openapi-fetch typed
                               client (npm run generate:api), hooks in src/hooks/queries.ts, strings in
                               src/i18n/sv.json via t(), screens in src/pages
@@ -111,14 +112,13 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
   CI fails if either generated file is uncommitted.
 - Local run: SQL container `isk-battle-sql` on 1433 (password in appsettings.Development.json), API on :5080 with
   `--launch-profile http`, Vite on :5173 proxying `/api`. Dev sign-in sends `X-Dev-User`. `Dev__Now=<ISO instant>`
-  shifts the API clock in Development (`DevClock`) to try windows at other times. No `chromium-cli` here: drive the
+  shifts the API/job clock in Development (`DevClock`, `AddDevClock`) to try windows at other times. Run the job
+  locally: `DOTNET_ENVIRONMENT=Development dotnet run --project src/IskBattle.Jobs -- reminders`. No `chromium-cli` here: drive the
   UI with Playwright from a scratch folder (cached browser `~/Library/Caches/ms-playwright/chromium-1117`).
 
 ## Next steps
 
-1. First code step (docs approved 2026-10-05): replace IskBattle.Functions with an IskBattle.Jobs console project
-   (time gate before any DB access, cron 0 6,7 * * * UTC + 0 18,19 29-31 12 *), plus a Dockerfile building API + job.
-   Then, when the user has the accounts: milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
+1. When the user has the accounts: milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
    offer (auto-pause at limit in dev, "continue using" before launch; Basic 5 DTU fallback), Container Apps Job
    (cron, same image), ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
    `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in

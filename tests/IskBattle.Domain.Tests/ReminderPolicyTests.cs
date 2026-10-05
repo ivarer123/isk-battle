@@ -76,4 +76,16 @@ public class ReminderPolicyTests
     [Fact]
     public void New_seasons_first_friday_is_reminded_on_saturday() =>
         Assert.Equal(new ReminderDecision("W:2027-01-01", true), Evaluate(Cadence.Weekly, At(2027, 1, 2, 8)));
+
+    [Theory]
+    [InlineData(2026, 9, 22, 7, 59, false)]
+    [InlineData(2026, 9, 22, 8, 0, true)]
+    [InlineData(2026, 9, 22, 8, 59, true)]
+    [InlineData(2026, 9, 22, 9, 0, false)]  // the off-DST trigger (07:00 UTC in summer)
+    [InlineData(2026, 12, 15, 7, 0, false)] // the off-DST trigger (06:00 UTC in winter)
+    [InlineData(2026, 12, 31, 20, 0, true)] // season end
+    [InlineData(2026, 12, 30, 20, 0, false)] // 29–31 Dec trigger on a day that isn't the last trading day
+    [InlineData(2026, 12, 31, 21, 0, false)]
+    public void Run_time_gate(int y, int m, int d, int hour, int minute, bool expected) =>
+        Assert.Equal(expected, ReminderPolicy.IsRunTime(At(y, m, d, hour, minute)));
 }

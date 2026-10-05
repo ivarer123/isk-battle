@@ -31,6 +31,12 @@ public static class GameConfig
 
     /// <summary>The season's final window closes at midnight, so its reminder goes out the same evening.</summary>
     public static readonly TimeOnly SeasonEndReminderTime = new(20, 0);
+
+    /// <summary>
+    /// How long after a reminder time a scheduled reminder run may still do work. The job's cron fires at two UTC
+    /// hours to cover daylight saving; the run outside this span exits without touching the database.
+    /// </summary>
+    public static readonly TimeSpan ReminderRunSpan = TimeSpan.FromHours(1);
     public const string TimeZoneId = "Europe/Stockholm";
 
     /// <summary>Trading days in v1 = Monday–Friday. Swedish exchange holidays are a later refinement.</summary>

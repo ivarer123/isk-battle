@@ -14,8 +14,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Build-time OpenAPI generation (GetDocument.Insider) runs this file without deployment settings.
 var generatingOpenApi = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
 builder.Services.AddInfrastructure(builder.Configuration, validateOnStart: !generatingOpenApi);
-if (builder.Environment.IsDevelopment() && builder.Configuration["Dev:Now"] is { Length: > 0 } devNow)
-    builder.Services.AddSingleton<TimeProvider>(new DevClock(DateTimeOffset.Parse(devNow, System.Globalization.CultureInfo.InvariantCulture)));
+if (builder.Environment.IsDevelopment())
+    builder.Services.AddDevClock(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o =>

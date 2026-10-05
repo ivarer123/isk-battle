@@ -3,6 +3,7 @@ using IskBattle.Infrastructure.Notifications;
 using IskBattle.Infrastructure.Payments;
 using IskBattle.Infrastructure.Persistence;
 using IskBattle.Infrastructure.Reminders;
+using IskBattle.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,14 @@ public static class DependencyInjection
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.Section));
         services.AddSingleton<IPaymentGateway, StripePaymentGateway>();
         services.AddScoped<ReminderJob>();
+        return services;
+    }
+
+    /// <summary>Development only: replaces the clock when <c>Dev:Now</c> is set (see <see cref="DevClock"/>).</summary>
+    public static IServiceCollection AddDevClock(this IServiceCollection services, IConfiguration configuration)
+    {
+        if (configuration["Dev:Now"] is { Length: > 0 } devNow)
+            services.AddSingleton<TimeProvider>(new DevClock(DateTimeOffset.Parse(devNow, System.Globalization.CultureInfo.InvariantCulture)));
         return services;
     }
 }

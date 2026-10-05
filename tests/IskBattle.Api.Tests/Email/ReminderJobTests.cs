@@ -2,6 +2,7 @@ using IskBattle.Api.Tests.Infrastructure;
 using IskBattle.Domain;
 using IskBattle.Domain.Entities;
 using IskBattle.Infrastructure.Email;
+using IskBattle.Infrastructure.Persistence;
 using IskBattle.Infrastructure.Reminders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -71,6 +72,23 @@ public class ReminderJobTests(SqlServerFixture sql)
         Assert.StartsWith("https://api.test/unsubscribe?token=", email.UnsubscribeUrl);
         await using var db = sql.CreateDbContext();
         Assert.Equal("W:2026-09-25", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
+    }
+
+    [Fact]
+    public async Task Outside_run_times_the_job_never_touches_the_database()
+    {
+        // 09:00 Stockholm: the 07:00 UTC trigger in summer. The connection string points nowhere.
+        _clock.SetUtcNow(new DateTimeOffset(2026, 9, 26, 7, 0, 0, TimeSpan.Zero));
+        var options = new DbContextOptionsBuilder<IskBattleDbContext>()
+            .UseSqlServer("Server=tcp:127.0.0.1,1;Database=Nowhere;Connect Timeout=1;TrustServerCertificate=True").Options;
+        var emailOptions = Options.Create(new EmailOptions { UnsubscribeKey = ApiFactory.TestUnsubscribeKey });
+        var links = new EmailLinks(Options.Create(new AppLinkOptions { AppBaseUrl = "https://app.test", ApiBaseUrl = "https://api.test" }),
+            new UnsubscribeTokens(emailOptions));
+        await using var unreachable = new IskBattleDbContext(options);
+
+        var sent = await new ReminderJob(unreachable, _emails, links, _clock, NullLogger<ReminderJob>.Instance).RunAsync(Ct);
+
+        Assert.Equal(0, sent);
     }
 
     [Fact]
