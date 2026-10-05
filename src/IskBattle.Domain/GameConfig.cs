@@ -29,6 +29,10 @@ public static class GameConfig
         DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday,
     }.ToFrozenSet();
 
+    /// <summary>Seasons the API accepts in queries; anything outside is a client error, not a calendar edge case.</summary>
+    public const int FirstSupportedSeason = 2000;
+    public const int LastSupportedSeason = 2999;
+
     /// <summary>Period returns are rounded to this many decimals before ranking, so ties match what players see.</summary>
     public const int ReturnDecimals = 2;
 }

@@ -172,6 +172,15 @@ export interface paths {
                         "application/json": components["schemas"]["CheckInResponse"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         put?: never;

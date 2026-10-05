@@ -30,26 +30,44 @@ public class UnsubscribeTests(SqlServerFixture sql) : ApiTestBase(sql)
     public void Short_keys_are_refused() =>
         Assert.Throws<InvalidOperationException>(() => new UnsubscribeTokens(Options.Create(new EmailOptions { UnsubscribeKey = "short" })));
 
-    [Theory]
-    [InlineData("GET")]
-    [InlineData("POST")]
-    public async Task Link_turns_off_email_without_signing_in(string method)
+    [Fact]
+    public async Task Opening_the_link_only_asks_for_confirmation()
+    {
+        var anna = await Factory.NewPlayerAsync("Anna");
+        var me = await anna.GetAsync<MeResponse>("/me");
+        var token = Uri.EscapeDataString(Tokens.Create(me.Id));
+
+        var response = await Factory.CreateClient().GetAsync($"/unsubscribe?token={token}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("<form method=\"post\"", html);
+        Assert.Contains($"?token={token}", html.Replace("&#x3D;", "="));
+        Assert.True((await anna.GetAsync<MeResponse>("/me")).EmailRemindersEnabled);
+    }
+
+    [Fact]
+    public async Task Posting_turns_off_email_without_signing_in()
     {
         var anna = await Factory.NewPlayerAsync("Anna");
         var me = await anna.GetAsync<MeResponse>("/me");
         var url = $"/unsubscribe?token={Uri.EscapeDataString(Tokens.Create(me.Id))}";
 
-        var response = await Factory.CreateClient().SendAsync(new HttpRequestMessage(new HttpMethod(method), url));
+        // RFC 8058 one-click body, as sent by mail clients.
+        var response = await Factory.CreateClient().PostAsync(url,
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("List-Unsubscribe", "One-Click")]));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Du får inga fler mejl", await response.Content.ReadAsStringAsync());
         Assert.False((await anna.GetAsync<MeResponse>("/me")).EmailRemindersEnabled);
     }
 
-    [Fact]
-    public async Task Invalid_link_is_rejected()
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    public async Task Invalid_link_is_rejected(string method)
     {
-        var response = await Factory.CreateClient().GetAsync("/unsubscribe?token=forged.token");
+        var response = await Factory.CreateClient().SendAsync(new HttpRequestMessage(new HttpMethod(method), "/unsubscribe?token=forged.token"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

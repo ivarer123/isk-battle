@@ -112,7 +112,8 @@ Owner and co-hosts can: rename the league, queue a cadence change for next seaso
 ### Capacity and joining
 
 - When a league is full, new joiners enter a **Pending** state instead of being rejected.
-- The owner and co-hosts receive an email: *"{Namn} vill gå med i {Liga}. Uppgradera för att släppa in fler."*
+- The owner and co-hosts receive an email: *"{Namn} vill gå med i {Liga}. Uppgradera för att släppa in fler."* This is sent **once per player and league**; leaving and rejoining doesn't send it again.
+- Display names and league names may not contain links, email addresses, line breaks or invisible formatting characters (they appear in emails).
 - After an upgrade, pending members are activated **first-come, first-served** up to the new capacity.
 
 ## 8. Tiers and pricing
@@ -127,6 +128,7 @@ Premium is a **permanent, one-time** purchase attached to the **league**, not th
 | Premium 250 | 250 | 399 |
 
 - Upgrades cost the **difference** between tiers (e.g. 50 → 100 costs 100 kr).
+- The price is fixed when checkout starts. If someone else upgrades the league before the payment completes, the upgrade still applies and the overcharge is flagged for a **manual partial refund**; if the league already has the bought tier, the whole amount is flagged for a manual refund.
 - Any league member may pay, including a Pending member. The payer becomes a co-host; a Pending payer is activated first.
 - Prices are treated as moms-inclusive. The business is below the 120 000 kr moms threshold at launch; if it is crossed, prices stay the same and net revenue drops accordingly.
 - Before checkout the buyer must tick: *"Jag vill att uppgraderingen aktiveras direkt och förstår att ångerrätten därmed upphör."* The consent timestamp is stored with the purchase.
@@ -146,6 +148,8 @@ Other emails: join pending (to owner and co-hosts), member activated (to the joi
 
 - One email switch per player covers all ISK Battle email; the unsubscribe link turns it off. Hosts who opted out still see pending members in the app.
 - Each reminder window is open from its reminder time until the window ends (e.g. Friday 18:00 – Sunday for Weekly), so a missed run catches up once.
+- A week split at New Year is two windows, one per season. The old season's part is reminded at 18:00 on its last trading day (e.g. Thu 31 Dec 2026), the new season's part on its last trading day up to Friday (e.g. Fri 1 Jan 2027). Only check-ins within the part count. A part with no trading day gets no reminder.
+- The unsubscribe link opens a confirm page; email is turned off only when the player confirms (link-scanning mail filters must not unsubscribe anyone). Mail clients' one-click unsubscribe still works directly.
 
 ## 10. Explicit non-goals (v1)
 
@@ -174,3 +178,7 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-10-01 | §6 clarifications: periods clipped to season, Dag spans weekends, Ny before Pausad, 2-dp ties with competition ranking, typo guard within season |
 | 2026-10-01 | Earliest co-host = first to pay; Pending members may pay and are activated as co-host |
 | 2026-10-01 | One email switch for all email (unsubscribe turns it off); reminders catch up within their window |
+| 2026-10-05 | Overcharge after a concurrent upgrade → upgrade applies, flagged for manual partial refund |
+| 2026-10-05 | Week split at New Year has one reminder window per season; old season's part reminded on its last trading day |
+| 2026-10-05 | Pending-join email to hosts once per player and league; names may not contain links or control characters |
+| 2026-10-05 | Unsubscribe link shows a confirm page; the change happens on POST |

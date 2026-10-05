@@ -10,6 +10,7 @@ public class IskBattleDbContext(DbContextOptions<IskBattleDbContext> options) : 
     public DbSet<League> Leagues => Set<League>();
     public DbSet<LeagueMember> LeagueMembers => Set<LeagueMember>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
+    public DbSet<JoinPendingNotice> JoinPendingNotices => Set<JoinPendingNotice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IskBattleDbContext).Assembly);

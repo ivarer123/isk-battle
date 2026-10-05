@@ -1,6 +1,7 @@
 using IskBattle.Api.Auth;
 using IskBattle.Domain;
 using IskBattle.Domain.Leagues;
+using IskBattle.Domain.Text;
 using IskBattle.Domain.Time;
 using IskBattle.Infrastructure.Notifications;
 using IskBattle.Infrastructure.Persistence;
@@ -48,8 +49,13 @@ internal static class MeEndpoints
         if (request.DisplayName is not null)
         {
             var name = request.DisplayName.Trim();
-            if (name.Length is 0 or > MaxDisplayNameLength)
-                return Problems.BadRequest("display_name_invalid", $"Display name must be 1–{MaxDisplayNameLength} characters.");
+            switch (NameRules.Validate(name, MaxDisplayNameLength))
+            {
+                case NameError.Length:
+                    return Problems.BadRequest("display_name_invalid", $"Display name must be 1–{MaxDisplayNameLength} characters.");
+                case NameError.NotAllowed:
+                    return Problems.BadRequest("name_not_allowed", "Names can't contain links, email addresses or control characters.");
+            }
             user.DisplayName = name;
         }
         if (request.EmailRemindersEnabled is { } reminders)

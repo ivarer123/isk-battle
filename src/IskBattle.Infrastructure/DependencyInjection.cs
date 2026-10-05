@@ -6,20 +6,33 @@ using IskBattle.Infrastructure.Reminders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace IskBattle.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="validateOnStart">
+    /// Fail startup on missing email/link settings. Off only for build-time OpenAPI generation, which starts
+    /// the host without any deployment configuration.
+    /// </param>
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, IConfiguration configuration, bool validateOnStart = true)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddDbContext<IskBattleDbContext>(options => options.UseSqlServer(
             configuration.GetConnectionString("Sql"),
             sql => sql.EnableRetryOnFailure())); // tolerates the free-tier auto-pause wake-up
 
-        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.Section));
-        services.Configure<AppLinkOptions>(configuration.GetSection(AppLinkOptions.Section));
+        var email = services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Section));
+        var links = services.AddOptions<AppLinkOptions>().Bind(configuration.GetSection(AppLinkOptions.Section));
+        if (validateOnStart)
+        {
+            email.ValidateOnStart();
+            links.ValidateOnStart();
+            services.AddSingleton<IValidateOptions<EmailOptions>, EmailOptionsValidation>();
+            services.AddSingleton<IValidateOptions<AppLinkOptions>, EmailOptionsValidation>();
+        }
         services.AddSingleton<UnsubscribeTokens>();
         services.AddSingleton<EmailLinks>();
         if (string.Equals(configuration[$"{EmailOptions.Section}:Provider"], "Acs", StringComparison.OrdinalIgnoreCase))

@@ -20,7 +20,7 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 - UI language Swedish, code/docs English. Percentages `decimal`, money integer öre, tunables only in `GameConfig`,
   time via injected `TimeProvider`, business time Europe/Stockholm.
 
-## Status (as of 2026-10-01)
+## Status (as of 2026-10-05)
 
 | Milestone | State |
 |---|---|
@@ -34,7 +34,10 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 | 8 Infrastructure (Bicep, deploy, domains) | **next – blocked on user** |
 | 9 Legal pages + launch checklist | not started (legal pages are placeholders) |
 
-Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 235 .NET + 18 web, all green;
+A full code review (2026-10-05) was followed by a fix commit (overcharge refunds, startup config validation,
+New Year reminder windows, pending-join email spam, oid, 400s for out-of-range dates, unsubscribe confirm page).
+
+Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 276 .NET + 18 web, all green;
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
@@ -84,7 +87,12 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
 - One email switch (`EmailRemindersEnabled`) governs all email; unsubscribe turns it off. Reminders catch up within
   their window. Window claimed with a conditional update before sending (at most once).
 - Stripe.net 53: `AllowedPaymentMethodTypes = [card, swish]`; webhook parsed with `throwOnApiVersionMismatch:false`.
-  Concurrent same-tier buyer → `NeedsRefund` (manual refund). Checkout returns 503 when Stripe keys are missing.
+  Concurrent same-tier buyer → `NeedsRefund`; overtaken by a smaller upgrade → `PaidNeedsPartialRefund`; both set
+  `Purchase.RefundDueOre` (manual refund). Checkout returns 503 when Stripe keys are missing.
+- Users keyed on Entra `oid`. Email/link options validated at startup (skipped for build-time OpenAPI generation).
+- Weekly reminder windows are season-aware (key = first day of the week in the season). Hosts get one pending-join
+  email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control chars in display and league
+  names. Unsubscribe GET = confirm page, POST = change.
 
 ## Environment gotchas
 
@@ -106,8 +114,8 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
    Flex Consumption Functions, ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
    `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in
    deploy, CORS for the app origin, custom domains. Also an Entra External ID SPA + API app registration
-   (`VITE_ENTRA_*`, `Auth:Authority/Audience`).
+   (`VITE_ENTRA_*`, `Auth:Authority/Audience`); the API's access token **must include the `email` optional claim**
+   (and `oid`), otherwise no email is ever sent. Docker Desktop must be running for the .NET tests.
 2. Milestone 9 – Swedish terms and privacy policy (data stored: email, display name, YTD %, purchases; 7-year
    bookkeeping retention), company details in footer, Stripe live keys.
-3. Open items worth raising with the user: Swedish exchange-holiday calendar; whether GET unsubscribe should become
-   a confirm page (mail scanners may prefetch links).
+3. Open items worth raising with the user: Swedish exchange-holiday calendar.

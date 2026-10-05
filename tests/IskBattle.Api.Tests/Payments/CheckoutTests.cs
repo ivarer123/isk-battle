@@ -138,6 +138,25 @@ public class CheckoutTests(SqlServerFixture sql) : ApiTestBase(sql)
     }
 
     [Fact]
+    public async Task Buyer_overtaken_by_a_smaller_upgrade_gets_a_partial_refund_flag()
+    {
+        var owner = await Factory.NewPlayerAsync("Anna");
+        var league = await CreateLeagueAsync(owner);
+        var bertil = await JoinedPlayerAsync("Bertil", league);
+        var big = await CheckoutAsync(bertil, league.Id, LeagueTier.Premium100);
+        var small = await CheckoutAsync(owner, league.Id, LeagueTier.Premium50);
+
+        await WebhookAsync("Paid", small);
+        await WebhookAsync("Paid", big);
+        await WebhookAsync("Paid", big); // redelivery changes nothing
+
+        await using var db = Sql.CreateDbContext();
+        var purchase = await db.Purchases.SingleAsync(p => p.StripeCheckoutSessionId == big, TestContext.Current.CancellationToken);
+        Assert.Equal((PurchaseStatus.PaidNeedsPartialRefund, 9_900), (purchase.Status, purchase.RefundDueOre));
+        Assert.Equal(LeagueTier.Premium100, (await owner.GetAsync<LeagueDetail>($"/leagues/{league.Id}")).Tier);
+    }
+
+    [Fact]
     public async Task Concurrent_paid_webhooks_upgrade_once()
     {
         var owner = await Factory.NewPlayerAsync("Anna");

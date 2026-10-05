@@ -1,4 +1,5 @@
 using IskBattle.Api.Auth;
+using IskBattle.Domain;
 using IskBattle.Domain.CheckIns;
 using IskBattle.Domain.Entities;
 using IskBattle.Domain.Time;
@@ -18,7 +19,9 @@ internal static class CheckInEndpoints
             .Produces<CheckInResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-        api.MapGet("/me/check-ins", History);
+        api.MapGet("/me/check-ins", History)
+            .Produces<List<CheckInResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 
     private static async Task<IResult> CheckIn(CheckInRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)
@@ -70,16 +73,18 @@ internal static class CheckInEndpoints
         return Results.Ok(new CheckInResponse(checkIn.ForDate, checkIn.YtdPercent));
     }
 
-    private static async Task<List<CheckInResponse>> History(int? season, HttpContext http, IskBattleDbContext db, TimeProvider time)
+    private static async Task<IResult> History(int? season, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var user = http.GetCurrentUser();
         var year = season ?? StockholmTime.Today(time).Year;
+        if (year is < GameConfig.FirstSupportedSeason or > GameConfig.LastSupportedSeason)
+            return Problems.BadRequest("season_invalid", "That season is outside the supported range.");
         var from = new DateOnly(year, 1, 1);
         var to = from.AddYears(1);
-        return await db.CheckIns
+        return Results.Ok(await db.CheckIns
             .Where(c => c.UserId == user.Id && c.ForDate >= from && c.ForDate < to)
             .OrderBy(c => c.ForDate)
             .Select(c => new CheckInResponse(c.ForDate, c.YtdPercent))
-            .ToListAsync(http.RequestAborted);
+            .ToListAsync(http.RequestAborted));
     }
 }

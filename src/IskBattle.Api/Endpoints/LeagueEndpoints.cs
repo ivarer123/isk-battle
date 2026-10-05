@@ -6,6 +6,7 @@ using IskBattle.Domain.Entities;
 using IskBattle.Domain.Leagues;
 using IskBattle.Domain.Periods;
 using IskBattle.Domain.Standings;
+using IskBattle.Domain.Text;
 using IskBattle.Domain.Time;
 using IskBattle.Infrastructure.Notifications;
 using IskBattle.Infrastructure.Persistence;
@@ -54,8 +55,8 @@ internal static class LeagueEndpoints
     private static async Task<IResult> Create(CreateLeagueRequest request, HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
         var name = request.Name?.Trim() ?? "";
-        if (name.Length is 0 or > MaxNameLength)
-            return Problems.BadRequest("league_name_invalid", $"League name must be 1–{MaxNameLength} characters.");
+        if (InvalidName(name) is { } invalid)
+            return invalid;
         if (!Enum.IsDefined(request.Cadence))
             return Problems.BadRequest("cadence_invalid", "Unknown cadence.");
 
@@ -80,6 +81,13 @@ internal static class LeagueEndpoints
         var me = league.Members[0];
         return Results.Created($"/leagues/{league.Id}", await DetailAsync(db, league, me, time, http.RequestAborted));
     }
+
+    private static IResult? InvalidName(string name) => NameRules.Validate(name, MaxNameLength) switch
+    {
+        NameError.Length => Problems.BadRequest("league_name_invalid", $"League name must be 1–{MaxNameLength} characters."),
+        NameError.NotAllowed => Problems.BadRequest("name_not_allowed", "Names can't contain links, email addresses or control characters."),
+        _ => null,
+    };
 
     private static async Task<List<LeagueSummary>> List(HttpContext http, IskBattleDbContext db, TimeProvider time)
     {
@@ -109,11 +117,17 @@ internal static class LeagueEndpoints
             return Problems.NotFound("invite_not_found", "No league with that invite code.");
 
         var user = http.GetCurrentUser();
-        var outcome = MembershipService.Join(league, user.Id, time.GetUtcNow());
+        var now = time.GetUtcNow();
+        var outcome = MembershipService.Join(league, user.Id, now);
+        // Hosts hear about a pending player once per league, however often they leave and rejoin.
+        var notifyHosts = outcome == JoinOutcome.Pending
+                          && !await db.JoinPendingNotices.AnyAsync(n => n.LeagueId == league.Id && n.UserId == user.Id, http.RequestAborted);
+        if (notifyHosts)
+            db.JoinPendingNotices.Add(new JoinPendingNotice { LeagueId = league.Id, UserId = user.Id, SentAt = now });
         if (outcome != JoinOutcome.AlreadyMember && !await db.TrySaveLeagueAsync(league, http.RequestAborted))
             return Problems.Conflict();
 
-        if (outcome == JoinOutcome.Pending)
+        if (notifyHosts)
             await notifications.JoinPendingAsync(league, user, http.RequestAborted);
 
         var status = league.Member(user.Id)!.Status;
@@ -132,8 +146,8 @@ internal static class LeagueEndpoints
         if (request.Name is not null)
         {
             var name = request.Name.Trim();
-            if (name.Length is 0 or > MaxNameLength)
-                return Problems.BadRequest("league_name_invalid", $"League name must be 1–{MaxNameLength} characters.");
+            if (InvalidName(name) is { } invalid)
+                return invalid;
             league.Name = name;
         }
         if (request.NextSeasonCadence is { } cadence)
@@ -189,6 +203,8 @@ internal static class LeagueEndpoints
     {
         var (league, me) = http.GetLeague();
         var day = date ?? StockholmTime.Today(time);
+        if (day.Year is < GameConfig.FirstSupportedSeason or > GameConfig.LastSupportedSeason)
+            return Problems.BadRequest("date_invalid", "That date is outside the supported seasons.");
         if (!Enum.TryParse<PeriodType>(period ?? nameof(PeriodType.Year), ignoreCase: true, out var type)
             || !LeagueRules.VisiblePeriods(league.CadenceFor(day.Year)).Contains(type))
         {

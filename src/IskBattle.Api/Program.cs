@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using IskBattle.Api.Auth;
@@ -10,7 +11,9 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddInfrastructure(builder.Configuration);
+// Build-time OpenAPI generation (GetDocument.Insider) runs this file without deployment settings.
+var generatingOpenApi = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
+builder.Services.AddInfrastructure(builder.Configuration, validateOnStart: !generatingOpenApi);
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o =>
@@ -19,7 +22,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
 });
 
-// Microsoft Entra External ID (email one-time passcode). Keep raw claim names ("sub", "email").
+// Microsoft Entra External ID (email one-time passcode). Keep raw claim names ("oid", "email").
 var devAuth = builder.Configuration.GetValue<bool>("Auth:DevMode");
 if (devAuth && !builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Auth:DevMode is only allowed in Development.");
@@ -42,7 +45,7 @@ builder.Services.AddRateLimiter(o =>
     foreach (var policy in new[] { CheckInEndpoints.RateLimitPolicy, LeagueEndpoints.JoinRateLimitPolicy })
     {
         o.AddPolicy(policy, http => RateLimitPartition.GetFixedWindowLimiter(
-            http.User.FindFirst("sub")?.Value ?? "anonymous",
+            http.User.FindFirst(CurrentUser.IdClaim)?.Value ?? "anonymous",
             _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
     }
 });

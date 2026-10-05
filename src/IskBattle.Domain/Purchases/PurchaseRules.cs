@@ -32,20 +32,24 @@ public static class PurchaseRules
     /// <summary>
     /// Applies a paid purchase: tier becomes max(current, ToTier), the buyer becomes co-host (activated first
     /// if Pending), and Pending members are activated first-come, first-served. If the league already has
-    /// the tier (two concurrent buyers) or was deleted, nothing changes and the purchase needs a refund.
+    /// the tier (two concurrent buyers) or was deleted, nothing changes and the purchase needs a refund. If
+    /// the league moved up to a tier between FromTier and ToTier after checkout, the upgrade still applies
+    /// and the price difference is due as a partial refund.
     /// </summary>
     public static PurchaseCompletion CompletePaid(League league, Purchase purchase, DateTimeOffset now)
     {
-        if (purchase.Status == PurchaseStatus.Paid)
-            return new PurchaseCompletion(PurchaseStatus.Paid, []);
+        if (purchase.Status is not (PurchaseStatus.Created or PurchaseStatus.Failed))
+            return new PurchaseCompletion(purchase.Status, []); // already completed (webhook redelivery)
 
         purchase.CompletedAt = now;
         if (league.DeletedAt is not null || league.Tier >= purchase.ToTier)
         {
             purchase.Status = PurchaseStatus.NeedsRefund;
+            purchase.RefundDueOre = purchase.AmountOre;
             return new PurchaseCompletion(PurchaseStatus.NeedsRefund, []);
         }
 
+        purchase.RefundDueOre = Math.Max(0, purchase.AmountOre - GameConfig.UpgradePriceOre(league.Tier, purchase.ToTier));
         league.Tier = purchase.ToTier;
         var buyer = purchase.BuyerUserId is { } buyerId ? league.Member(buyerId) : null;
         var wasPending = buyer?.Status == MemberStatus.Pending;
@@ -56,8 +60,8 @@ public static class PurchaseRules
         if (wasPending)
             activated.Insert(0, buyer!);
 
-        purchase.Status = PurchaseStatus.Paid;
-        return new PurchaseCompletion(PurchaseStatus.Paid, activated);
+        purchase.Status = purchase.RefundDueOre > 0 ? PurchaseStatus.PaidNeedsPartialRefund : PurchaseStatus.Paid;
+        return new PurchaseCompletion(purchase.Status, activated);
     }
 
     /// <summary>Expired or failed checkouts. A purchase that already completed is left alone.</summary>

@@ -8,6 +8,12 @@ internal static class CurrentUser
 {
     private const string ItemKey = "IskBattle.CurrentUser";
 
+    /// <summary>
+    /// Entra object id: stable per user across app registrations, unlike 'sub' (pairwise per app). The email
+    /// claim must be added as an optional claim on the API app registration, or no email is ever sent.
+    /// </summary>
+    public const string IdClaim = "oid";
+
     public static User GetCurrentUser(this HttpContext http) => (User)http.Items[ItemKey]!;
 
     /// <summary>
@@ -16,7 +22,7 @@ internal static class CurrentUser
     public static async ValueTask<object?> UpsertFilter(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var http = context.HttpContext;
-        var externalId = http.User.FindFirst("sub")?.Value;
+        var externalId = http.User.FindFirst(IdClaim)?.Value;
         if (string.IsNullOrEmpty(externalId))
             return Results.Unauthorized();
 

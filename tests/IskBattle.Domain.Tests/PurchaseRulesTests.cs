@@ -93,10 +93,10 @@ public class PurchaseRulesTests
     {
         var league = FullFreeLeague(pending: 1);
         var left = PurchaseRules.Create(league, Guid.NewGuid(), LeagueTier.Premium50, T0);
+        Assert.Equal(PurchaseStatus.Paid, PurchaseRules.CompletePaid(league, left, T0).Status);
         var deleted = PurchaseRules.Create(league, Guid.NewGuid(), LeagueTier.Premium100, T0);
         deleted.BuyerUserId = null;
 
-        Assert.Equal(PurchaseStatus.Paid, PurchaseRules.CompletePaid(league, left, T0).Status);
         Assert.Equal(PurchaseStatus.Paid, PurchaseRules.CompletePaid(league, deleted, T0).Status);
         Assert.Equal(LeagueTier.Premium100, league.Tier);
     }
@@ -117,15 +117,33 @@ public class PurchaseRulesTests
     }
 
     [Fact]
-    public void Higher_concurrent_purchase_still_applies()
+    public void League_upgraded_after_checkout_is_charged_too_much_and_needs_a_partial_refund()
     {
+        // B starts Free -> 100 (199 kr); A completes Free -> 50 first, so B only owed 100 kr.
         var league = FullFreeLeague(pending: 0);
         var small = PurchaseRules.Create(league, league.Members[1].UserId, LeagueTier.Premium50, T0);
         var big = PurchaseRules.Create(league, league.Members[2].UserId, LeagueTier.Premium100, T0);
         PurchaseRules.CompletePaid(league, small, T0);
 
-        Assert.Equal(PurchaseStatus.Paid, PurchaseRules.CompletePaid(league, big, T0).Status);
-        Assert.Equal(LeagueTier.Premium100, league.Tier);
+        var result = PurchaseRules.CompletePaid(league, big, T0);
+
+        Assert.Equal(PurchaseStatus.PaidNeedsPartialRefund, result.Status);
+        Assert.Equal((LeagueTier.Premium100, 9_900, 0), (league.Tier, big.RefundDueOre, small.RefundDueOre));
+        Assert.Equal(MemberRole.CoHost, league.Members[2].Role);
+    }
+
+    [Theory]
+    [InlineData(PurchaseStatus.NeedsRefund)]
+    [InlineData(PurchaseStatus.PaidNeedsPartialRefund)]
+    public void Completed_refund_cases_are_not_re_evaluated(PurchaseStatus status)
+    {
+        var league = FullFreeLeague(pending: 0);
+        var purchase = PurchaseRules.Create(league, league.Members[1].UserId, LeagueTier.Premium50, T0);
+        purchase.Status = status;
+
+        var again = PurchaseRules.CompletePaid(league, purchase, T0);
+
+        Assert.Equal((status, 0, LeagueTier.Free, (DateTimeOffset?)null), (again.Status, again.Activated.Count, league.Tier, purchase.CompletedAt));
     }
 
     [Fact]
@@ -136,7 +154,7 @@ public class PurchaseRulesTests
         league.DeletedAt = T0;
 
         Assert.Equal(PurchaseStatus.NeedsRefund, PurchaseRules.CompletePaid(league, purchase, T0).Status);
-        Assert.Equal(LeagueTier.Free, league.Tier);
+        Assert.Equal((LeagueTier.Free, 9_900), (league.Tier, purchase.RefundDueOre));
     }
 
     [Fact]

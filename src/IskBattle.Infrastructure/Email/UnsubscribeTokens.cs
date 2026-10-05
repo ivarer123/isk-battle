@@ -7,12 +7,14 @@ namespace IskBattle.Infrastructure.Email;
 /// <summary>HMAC-signed, non-expiring tokens identifying the user to unsubscribe (ARCHITECTURE.md §8).</summary>
 public sealed class UnsubscribeTokens(IOptions<EmailOptions> options)
 {
+    public const int MinKeyLength = 32;
+
     private const string Purpose = "unsubscribe:v1:";
 
     private readonly byte[] _key = Encoding.UTF8.GetBytes(
-        options.Value.UnsubscribeKey is { Length: >= 32 } key
+        options.Value.UnsubscribeKey is { Length: >= MinKeyLength } key
             ? key
-            : throw new InvalidOperationException("Email:UnsubscribeKey must be at least 32 characters."));
+            : throw new InvalidOperationException($"Email:UnsubscribeKey must be at least {MinKeyLength} characters."));
 
     public string Create(Guid userId)
     {

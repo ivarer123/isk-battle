@@ -22,7 +22,7 @@ internal sealed class DevAuthHandler(
         if (name.Length == 0)
             return Task.FromResult(AuthenticateResult.NoResult());
 
-        var identity = new ClaimsIdentity([new Claim("sub", $"dev|{name}"), new Claim("email", $"{name}@dev.local")], SchemeName);
+        var identity = new ClaimsIdentity([new Claim(CurrentUser.IdClaim, $"dev|{name}"), new Claim("email", $"{name}@dev.local")], SchemeName);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
     }
 }

@@ -49,6 +49,24 @@ namespace IskBattle.Infrastructure.Persistence.Migrations
                     b.ToTable("CheckIns");
                 });
 
+            modelBuilder.Entity("IskBattle.Domain.Entities.JoinPendingNotice", b =>
+                {
+                    b.Property<Guid>("LeagueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("LeagueId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("JoinPendingNotices");
+                });
+
             modelBuilder.Entity("IskBattle.Domain.Entities.League", b =>
                 {
                     b.Property<Guid>("Id")
@@ -164,6 +182,9 @@ namespace IskBattle.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LeagueId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("RefundDueOre")
+                        .HasColumnType("int");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -236,6 +257,21 @@ namespace IskBattle.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("IskBattle.Domain.Entities.CheckIn", b =>
                 {
+                    b.HasOne("IskBattle.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IskBattle.Domain.Entities.JoinPendingNotice", b =>
+                {
+                    b.HasOne("IskBattle.Domain.Entities.League", null)
+                        .WithMany()
+                        .HasForeignKey("LeagueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("IskBattle.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

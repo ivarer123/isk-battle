@@ -122,14 +122,14 @@ internal static partial class PaymentEndpoints
                 return Results.Ok();
             }
 
-            if (purchase.Status == PurchaseStatus.Paid)
-                return Results.Ok();
+            if (purchase.Status is not (PurchaseStatus.Created or PurchaseStatus.Failed))
+                return Results.Ok(); // already completed
 
             var league = await db.Leagues.IgnoreQueryFilters().Include(l => l.Members).SingleAsync(l => l.Id == purchase.LeagueId, ct);
             var completion = PurchaseRules.CompletePaid(league, purchase, time.GetUtcNow());
             purchase.StripePaymentIntentId = paymentEvent.PaymentIntentId;
-            if (completion.Status == PurchaseStatus.NeedsRefund)
-                LogNeedsRefund(logger, purchase.Id, league.Id);
+            if (completion.Status is PurchaseStatus.NeedsRefund or PurchaseStatus.PaidNeedsPartialRefund)
+                LogNeedsRefund(logger, purchase.Id, league.Id, purchase.RefundDueOre);
 
             // Tier, roles, activations and the purchase are saved together; the league rowversion guards
             // against a concurrent upgrade or join.
@@ -152,6 +152,6 @@ internal static partial class PaymentEndpoints
     [LoggerMessage(LogLevel.Warning, "Stripe webhook for unknown checkout session {SessionId}")]
     private static partial void LogUnknownSession(ILogger logger, string sessionId);
 
-    [LoggerMessage(LogLevel.Warning, "Purchase {PurchaseId} for league {LeagueId} needs a manual refund in Stripe")]
-    private static partial void LogNeedsRefund(ILogger logger, Guid purchaseId, Guid leagueId);
+    [LoggerMessage(LogLevel.Warning, "Purchase {PurchaseId} for league {LeagueId} needs a manual refund of {RefundDueOre} öre in Stripe")]
+    private static partial void LogNeedsRefund(ILogger logger, Guid purchaseId, Guid leagueId, int refundDueOre);
 }

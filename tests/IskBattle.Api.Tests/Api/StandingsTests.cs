@@ -72,6 +72,20 @@ public class StandingsTests(SqlServerFixture sql) : ApiTestBase(sql)
     }
 
     [Theory]
+    [InlineData("9999-12-31")]
+    [InlineData("0001-01-01")]
+    public async Task Dates_outside_supported_seasons_are_rejected(string date)
+    {
+        var anna = await Factory.NewPlayerAsync("Anna");
+        var league = await CreateLeagueAsync(anna);
+
+        var response = await anna.GetAsync($"/leagues/{league.Id}/standings?date={date}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("date_invalid", await response.ProblemCodeAsync());
+    }
+
+    [Theory]
     [InlineData("day")]      // not shown for a weekly league
     [InlineData("quarter")]
     public async Task Periods_not_shown_for_the_league_are_rejected(string period)

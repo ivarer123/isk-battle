@@ -70,7 +70,7 @@ public class ReminderJobTests(SqlServerFixture sql)
         Assert.Equal("Dags att uppdatera din utveckling", email.Subject);
         Assert.StartsWith("https://api.test/unsubscribe?token=", email.UnsubscribeUrl);
         await using var db = sql.CreateDbContext();
-        Assert.Equal("W:2026-39", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
+        Assert.Equal("W:2026-09-21", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
     }
 
     [Fact]

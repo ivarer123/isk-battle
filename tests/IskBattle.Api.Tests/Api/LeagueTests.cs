@@ -87,6 +87,37 @@ public class LeagueTests(SqlServerFixture sql) : ApiTestBase(sql)
     }
 
     [Fact]
+    public async Task League_names_with_links_are_rejected()
+    {
+        var anna = await Factory.NewPlayerAsync("Anna");
+
+        var response = await anna.PostJsonAsync("/leagues", new { name = "Vinn pengar på evil.se", cadence = Cadence.Weekly });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("name_not_allowed", await response.ProblemCodeAsync());
+    }
+
+    [Fact]
+    public async Task Rejoining_a_full_league_emails_the_hosts_only_once()
+    {
+        var anna = await Factory.NewPlayerAsync("Anna");
+        var league = await CreateLeagueAsync(anna);
+        for (var i = 2; i <= 10; i++)
+            await JoinedPlayerAsync($"Spelare {i}", league);
+        var elva = await JoinedPlayerAsync("Elva", league, MemberStatus.Pending);
+        var elvaId = (await elva.GetAsync<MeResponse>("/me")).Id;
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await elva.DeleteAsync($"/leagues/{league.Id}/members/{elvaId}")).StatusCode);
+            var rejoined = await (await elva.PostJsonAsync("/leagues/join", new { inviteCode = league.InviteCode })).ReadAsync<JoinLeagueResponse>();
+            Assert.Equal(MemberStatus.Pending, rejoined.Status);
+        }
+
+        Assert.Single(Factory.Emails.Sent, e => e.Subject == "Elva vill gå med i Kompisligan");
+    }
+
+    [Fact]
     public async Task Leaving_lets_the_first_pending_player_in()
     {
         var anna = await Factory.NewPlayerAsync("Anna");

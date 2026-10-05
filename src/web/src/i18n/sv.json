@@ -142,6 +142,9 @@
   "error.league_not_found": "Ligan finns inte eller så är du inte medlem.",
   "error.league_name_invalid": "Namnet måste vara 1–60 tecken.",
   "error.display_name_invalid": "Namnet måste vara 1–50 tecken.",
+  "error.name_not_allowed": "Namnet får inte innehålla länkar, e-postadresser eller radbrytningar.",
+  "error.date_invalid": "Datumet ligger utanför de säsonger som stöds.",
+  "error.season_invalid": "Säsongen stöds inte.",
   "error.ytd_out_of_range": "Ange ett tal mellan -99,99 och 1 000.",
   "error.ytd_too_precise": "Använd högst fyra decimaler."
 }

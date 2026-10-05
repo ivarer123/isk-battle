@@ -126,6 +126,32 @@ public class MeAndCheckInTests(SqlServerFixture sql) : ApiTestBase(sql)
         Assert.Equal([new(new DateOnly(2026, 1, 2), 1m), new(new DateOnly(2026, 1, 5), 2m)], history);
     }
 
+    [Theory]
+    [InlineData("Logga in på evil.se")]
+    [InlineData("Anna\r\nBcc: x")]
+    public async Task Display_names_with_links_or_line_breaks_are_rejected(string name)
+    {
+        var player = await Factory.NewPlayerAsync("Anna");
+
+        var response = await player.PatchJsonAsync("/me", new { displayName = name });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("name_not_allowed", await response.ProblemCodeAsync());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10000)]
+    public async Task History_outside_supported_seasons_is_rejected(int season)
+    {
+        var player = await Factory.NewPlayerAsync("Anna");
+
+        var response = await player.GetAsync($"/me/check-ins?season={season}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("season_invalid", await response.ProblemCodeAsync());
+    }
+
     [Fact]
     public async Task Check_ins_are_rate_limited()
     {

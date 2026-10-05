@@ -80,7 +80,7 @@ internal sealed class TestAuthHandler(
         if (!Request.Headers.TryGetValue(SubHeader, out var sub))
             return Task.FromResult(AuthenticateResult.NoResult());
 
-        var claims = new List<Claim> { new("sub", sub.ToString()) };
+        var claims = new List<Claim> { new("oid", sub.ToString()) };
         if (Request.Headers.TryGetValue(EmailHeader, out var email))
             claims.Add(new Claim("email", email.ToString()));
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));

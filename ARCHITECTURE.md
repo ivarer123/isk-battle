@@ -57,16 +57,16 @@ public enum Cadence { Daily, Weekly, Monthly }
 public enum LeagueTier { Free, Premium50, Premium100, Premium250 }
 public enum MemberRole { Owner, CoHost, Member }
 public enum MemberStatus { Active, Pending }
-public enum PurchaseStatus { Created, Paid, Failed, NeedsRefund }
+public enum PurchaseStatus { Created, Paid, Failed, NeedsRefund, PaidNeedsPartialRefund }
 
 public class User
 {
     public Guid Id { get; set; }
-    public string ExternalId { get; set; } = "";      // Entra 'sub'
+    public string ExternalId { get; set; } = "";      // Entra 'oid' (stable across app registrations)
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public bool EmailRemindersEnabled { get; set; } = true;
-    public string? LastReminderWindowKey { get; set; } // e.g. "D:2026-09-21", "W:2026-38", "M:2026-09"
+    public string? LastReminderWindowKey { get; set; } // e.g. "D:2026-09-21", "W:2026-09-14", "M:2026-09"
     public DateTimeOffset CreatedAt { get; set; }
 }
 
@@ -104,6 +104,13 @@ public class LeagueMember
     public DateTimeOffset? PromotedAt { get; set; } // became co-host; earliest inherits ownership
 }
 
+public class JoinPendingNotice                     // hosts are emailed once per (league, player)
+{
+    public Guid LeagueId { get; set; }
+    public Guid UserId { get; set; }
+    public DateTimeOffset SentAt { get; set; }
+}
+
 public class Purchase
 {
     public Guid Id { get; set; }
@@ -112,6 +119,7 @@ public class Purchase
     public LeagueTier FromTier { get; set; }
     public LeagueTier ToTier { get; set; }
     public int AmountOre { get; set; }              // money is always integer öre
+    public int RefundDueOre { get; set; }           // manual refund owed (NeedsRefund / PaidNeedsPartialRefund)
     public string StripeCheckoutSessionId { get; set; } = "";  // unique
     public string? StripePaymentIntentId { get; set; }
     public PurchaseStatus Status { get; set; }
@@ -167,7 +175,9 @@ Standings are computed on read. A league of 250 members with a season of daily c
 
 ## 6. API
 
-All endpoints require a bearer token except the webhook and unsubscribe. On first authenticated request, `User` is upserted from the token claims.
+All endpoints require a bearer token except the webhook and unsubscribe. On first authenticated request, `User` is upserted from the token claims: the user is keyed on `oid` (Entra's `sub` is pairwise per app registration), and `email` must be added as an optional claim on the API app registration's access token, otherwise no email is ever sent.
+
+Display names and league names are rejected (`name_not_allowed`) if they contain control/format characters (line breaks, bidi overrides, zero-width), `://`, `www.`, `@`, or a dot directly followed by two letters, because they are shown in emails. `season`/`date` query parameters outside `GameConfig.FirstSupportedSeason..LastSupportedSeason` return 400.
 
 | Method | Route | Notes |
 |---|---|---|
@@ -187,7 +197,8 @@ All endpoints require a bearer token except the webhook and unsubscribe. On firs
 | GET | `/leagues/{id}/standings?period=week&date=2026-09-21` | Members only |
 | POST | `/leagues/{id}/checkout` | `{ targetTier, immediateDeliveryConsent: true }` → `{ checkoutUrl }` |
 | POST | `/webhooks/stripe` | Signature-verified, idempotent |
-| GET | `/unsubscribe?token=` | Signed token, no auth |
+| GET | `/unsubscribe?token=` | Signed token, no auth; only shows a confirm page (mail scanners prefetch links) |
+| POST | `/unsubscribe?token=` | Turns email off; the confirm button and RFC 8058 one-click |
 
 Conventions: ProblemDetails for errors, OpenAPI via `Microsoft.AspNetCore.OpenApi`, rate limiting on `/check-ins` and `/leagues/join`. Authorization rules are enforced in endpoint filters, not in the UI.
 
@@ -205,9 +216,9 @@ Flow:
    - Stripe receipt emails enabled
 4. Browser redirects to Stripe. Stripe hosts the payment page (no card data touches our servers).
 5. Webhook handles `checkout.session.completed` (when `payment_status = paid`) and `checkout.session.async_payment_succeeded`:
-   - Look up `Purchase` by session id. If already `Paid`, return 200 (idempotency).
+   - Look up `Purchase` by session id. If already completed (`Paid`, `NeedsRefund`, `PaidNeedsPartialRefund`), return 200 (idempotency).
    - In one transaction: set `Purchase` to `Paid`; set `League.Tier = max(current, ToTier)`; add or upgrade the buyer to `CoHost` (unless Owner); activate Pending members FIFO up to capacity.
-   - If the league was already at or above `ToTier` (two concurrent buyers), mark `NeedsRefund` and log a warning. Refunds are handled manually in the Stripe dashboard in v1.
+   - If the league was already at or above `ToTier` (two concurrent buyers), mark `NeedsRefund` with `RefundDueOre = AmountOre` and log a warning. If it moved up to a tier between `FromTier` and `ToTier` after checkout, apply the upgrade but mark `PaidNeedsPartialRefund` with the overcharge in `RefundDueOre`. Refunds are handled manually in the Stripe dashboard in v1 (query purchases with `RefundDueOre > 0`).
 6. `checkout.session.async_payment_failed` / `expired` → `Failed`.
 
 Local development: Stripe test mode + `stripe listen --forward-to localhost:5080/webhooks/stripe`.
@@ -223,7 +234,11 @@ Emails are sent through an `IEmailSender` abstraction:
 - Production: Azure Communication Services Email.
 - Development: logs rendered emails to the console.
 
-Templates (Swedish, plain HTML + text): `CheckInReminder`, `JoinPending`, `MemberActivated`. Each contains a one-click unsubscribe link with an HMAC-signed token.
+Templates (Swedish, plain HTML + text): `CheckInReminder`, `JoinPending`, `MemberActivated`. Each contains an unsubscribe link with an HMAC-signed token (confirm page on GET, change on POST) and RFC 8058 `List-Unsubscribe-Post` headers.
+
+Weekly windows are season-aware: the window key is the first day of the week within the season (`W:2026-12-28`, `W:2027-01-01` for the two parts of 2026-W53), and each part is reminded at 18:00 on its last trading day up to Friday.
+
+`EmailOptions` and `AppLinkOptions` are validated at startup (`ValidateOnStart`): unsubscribe key ≥ 32 chars, Acs needs sender + endpoint/connection string, links must be absolute URLs. A missing Key Vault secret fails the deployment rather than returning 500 from the Stripe webhook. Build-time OpenAPI generation skips this check.
 
 ## 9. Frontend
 
@@ -275,6 +290,7 @@ Expected cost: under ~100 kr/month up to several thousand active players.
 - GDPR: account deletion endpoint; privacy policy listing data stored (email, display name, YTD percentages, purchases).
 - Bookkeeping: purchase records are retained for 7 years (bokföringslagen), with the buyer reference removed on account deletion.
 - Stripe webhook signature verification is mandatory; reject unsigned requests.
+- Names that end up in emails can't carry links or header-breaking characters; hosts get one pending-join email per player and league.
 
 ## 12. Build order (for Claude Code)
 
