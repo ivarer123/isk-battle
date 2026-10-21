@@ -274,7 +274,7 @@ Resource group `rg-iskbattle` in **Sweden Central** (`infra/main.bicep`; deploy 
 
 | Resource | Tier |
 |---|---|
-| Static Web App `swa-iskbattle` | Free (resource in West Europe, content on the global CDN) |
+| Static Web App `swa-iskbattle` | Free (resource in East US 2 – West Europe takes no new customers; only public static files, served from the global CDN) |
 | Container Apps environment `cae-iskbattle` + app `ca-iskbattle-api` | Consumption, 0.25 vCPU / 0.5 GiB, min 0, max 1 replica |
 | Container Apps Jobs | `caj-reminders-morning` (`0 6,7 * * *`), `caj-reminders-seasonend` (`0 18,19 28-30 12 *`), `caj-migrate` (manual); same image |
 | Azure SQL `sql-iskbattle-<suffix>` / `iskbattle` | Free offer (GP serverless, auto-pause), Entra-only auth |

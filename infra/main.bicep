@@ -7,8 +7,8 @@ targetScope = 'subscription'
 @description('Region for everything except the Static Web App and the global email resources.')
 param location string = 'swedencentral'
 
-@description('Static Web Apps (Free) is offered in a few regions only; content is served from a global CDN anyway.')
-param staticWebAppLocation string = 'westeurope'
+@description('Static Web Apps is offered in a few regions only (West Europe takes no new customers); it holds only the public static files and serves them from a global CDN.')
+param staticWebAppLocation string = 'eastus2'
 
 param resourceGroupName string = 'rg-iskbattle'
 
