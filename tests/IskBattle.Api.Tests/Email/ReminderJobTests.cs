@@ -70,8 +70,32 @@ public class ReminderJobTests(SqlServerFixture sql)
         var email = _emails.Sent.Single(e => e.To == anna.Email);
         Assert.Equal("Dags att uppdatera din utveckling", email.Subject);
         Assert.StartsWith("https://api.test/unsubscribe?token=", email.UnsubscribeUrl);
+        Assert.Contains("Rapportera senast imorgon kl. 23.59.", email.Text); // Weekly closes Sunday at midnight
         await using var db = sql.CreateDbContext();
         Assert.Equal("W:2026-09-25", (await db.Users.SingleAsync(u => u.Id == anna.Id, Ct)).LastReminderWindowKey);
+    }
+
+    [Fact]
+    public async Task Reminder_names_the_longest_open_window_of_the_players_cadences()
+    {
+        var daily = await PlayerAsync(Cadence.Daily);
+        var both = await PlayerAsync(Cadence.Daily);
+        await using (var db = sql.CreateDbContext())
+        {
+            var league = new League
+            {
+                Id = Guid.NewGuid(), Name = "Veckoliga", Cadence = Cadence.Weekly, InviteCode = Guid.NewGuid().ToString("N")[..8],
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            league.Members.Add(new LeagueMember { LeagueId = league.Id, UserId = both.Id, Role = MemberRole.Owner, Status = MemberStatus.Active, JoinedAt = DateTimeOffset.UtcNow });
+            db.Leagues.Add(league);
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await Job().RunAsync(Ct);
+
+        Assert.Contains("Rapportera senast idag kl. 09.00.", _emails.Sent.Single(e => e.To == daily.Email).Text);
+        Assert.Contains("Rapportera senast imorgon kl. 23.59.", _emails.Sent.Single(e => e.To == both.Email).Text);
     }
 
     [Fact]

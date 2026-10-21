@@ -11,14 +11,19 @@ public class PeriodCalculatorTests
     [InlineData(2026, 9, 25, 2026, 9, 25, 2026, 9, 28)] // Friday spans the weekend
     [InlineData(2026, 9, 26, 2026, 9, 25, 2026, 9, 28)] // Saturday resolves to Friday
     [InlineData(2026, 9, 27, 2026, 9, 25, 2026, 9, 28)] // Sunday resolves to Friday
-    [InlineData(2027, 1, 1, 2027, 1, 1, 2027, 1, 4)]    // 1 Jan 2027 is a Friday
-    [InlineData(2027, 1, 3, 2027, 1, 1, 2027, 1, 4)]    // Sunday after it
-    [InlineData(2027, 1, 4, 2027, 1, 4, 2027, 1, 5)]    // first Monday is not season start
+    [InlineData(2027, 1, 1, 2027, 1, 1, 2027, 1, 5)]    // Nyårsdagen (Friday) joins the first trading day
+    [InlineData(2027, 1, 3, 2027, 1, 1, 2027, 1, 5)]    // Sunday after it
+    [InlineData(2027, 1, 4, 2027, 1, 1, 2027, 1, 5)]    // Monday 4 Jan, first trading day of 2027
+    [InlineData(2027, 1, 5, 2027, 1, 5, 2027, 1, 7)]    // spans Trettondedag jul
+    [InlineData(2027, 1, 6, 2027, 1, 5, 2027, 1, 7)]    // a holiday resolves to the trading day before
     [InlineData(2028, 1, 1, 2028, 1, 1, 2028, 1, 4)]    // Saturday 1 Jan joins the first trading day
     [InlineData(2028, 1, 2, 2028, 1, 1, 2028, 1, 4)]
     [InlineData(2028, 1, 3, 2028, 1, 1, 2028, 1, 4)]    // Monday 3 Jan, first trading day of 2028
-    [InlineData(2026, 12, 31, 2026, 12, 31, 2027, 1, 1)] // Thursday clipped at season end
-    [InlineData(2027, 12, 31, 2027, 12, 31, 2028, 1, 1)] // Friday clipped at season end
+    [InlineData(2026, 4, 2, 2026, 4, 2, 2026, 4, 7)]    // Maundy Thursday spans Easter
+    [InlineData(2026, 12, 23, 2026, 12, 23, 2026, 12, 28)] // spans Christmas
+    [InlineData(2026, 12, 30, 2026, 12, 30, 2027, 1, 1)] // last trading day clipped at season end
+    [InlineData(2026, 12, 31, 2026, 12, 30, 2027, 1, 1)] // Nyårsafton is not a trading day
+    [InlineData(2027, 12, 31, 2027, 12, 30, 2028, 1, 1)]
     public void Day(int y, int m, int d, int sy, int sm, int sd, int ey, int em, int ed)
     {
         var period = PeriodCalculator.For(PeriodType.Day, D(y, m, d));
@@ -67,7 +72,8 @@ public class PeriodCalculatorTests
 
     [Theory]
     [InlineData(PeriodType.Day, 2026, 1, 1, true)]
-    [InlineData(PeriodType.Day, 2026, 1, 2, false)]
+    [InlineData(PeriodType.Day, 2026, 1, 2, true)]   // Friday 2 Jan, after Nyårsdagen, is the first trading day
+    [InlineData(PeriodType.Day, 2026, 1, 5, false)]
     [InlineData(PeriodType.Day, 2028, 1, 3, true)]   // no earlier trading day in 2028
     [InlineData(PeriodType.Week, 2026, 1, 4, true)]  // 2026-W01 starts Mon 29 Dec 2025, clipped to 1 Jan
     [InlineData(PeriodType.Week, 2026, 1, 5, false)]

@@ -229,10 +229,10 @@ Reminders are sent by a **Container Apps Job on a cron schedule**, not by pollin
 
 - **Schedule (cron is evaluated in UTC):**
   - `0 6,7 * * *`: 08:00 Stockholm in summer (06:00 UTC) and winter (07:00 UTC). One run covers Daily, Weekly and Monthly reminders (GAME-DESIGN.md §4a).
-  - `0 18,19 29-31 12 *`: 20:00 Stockholm on 29–31 Dec, for the season-end reminder on the year's last trading day.
+  - `0 18,19 28-30 12 *`: 20:00 Stockholm on 28–30 Dec, for the season-end reminder on the year's last trading day (Nyårsafton is closed, so it falls on 28–30 Dec).
 - **Time gate first, no database access:** `ReminderPolicy.IsRunTime` checks the Stockholm time and the job exits with code 0 unless it is 08:00–08:59, or 20:00–20:59 on the year's last trading day. The trigger that falls outside the gate (07:00 UTC in summer = 09:00, 06:00 UTC in winter = 07:00) never wakes SQL, so the database is woken once a day.
 - **Each real run:** for each user with reminders enabled and at least one active league, compute the effective cadence (most frequent across active leagues) and the current window (`ReminderPolicy.Evaluate`), skip users who already checked in for that trading day, claim the window by conditionally updating `LastReminderWindowKey`, then send. At most one reminder per window, even if two runs overlap.
-- **Catch-up:** there is no polling to catch up later. A failed run is retried by the job's retry policy (`replicaRetryLimit`). Otherwise a missed reminder is only sent if a later scheduled run still falls inside the window: Weekly on Sunday 08:00, and Monthly the next morning when the window spans a weekend. Daily reminders have no catch-up beyond retries, because the window closes at 09:00.
+- **Catch-up:** there is no polling to catch up later. A failed run is retried by the job's retry policy (`replicaRetryLimit`). Otherwise a missed reminder is only sent if a later scheduled run still falls inside the window: Weekly on Sunday 08:00, and Monthly the next morning when the window spans a weekend or holiday. Daily reminders have no catch-up beyond retries, because the window closes at 09:00.
 - **Packaging:** `IskBattle.Jobs` is a console app (generic host, no web server) sharing Domain and Infrastructure. The root `Dockerfile` publishes the API to `/app/api` and the job to `/app/jobs` in one image (default entrypoint: the API on port 8080, non-root). The Container Apps Job overrides the command with `dotnet /app/jobs/IskBattle.Jobs.dll reminders`; the job reads its own `appsettings.json` (content root = its folder). A failed run exits with code 1 so the job's retry policy applies; outside run times it exits 0.
 
 Emails are sent through an `IEmailSender` abstraction:
@@ -240,9 +240,9 @@ Emails are sent through an `IEmailSender` abstraction:
 - Production: Azure Communication Services Email.
 - Development: logs rendered emails to the console.
 
-Templates (Swedish, plain HTML + text): `CheckInReminder`, `JoinPending`, `MemberActivated`. Each contains an unsubscribe link with an HMAC-signed token (confirm page on GET, change on POST) and RFC 8058 `List-Unsubscribe-Post` headers.
+Templates (Swedish, plain HTML + text): `CheckInReminder` (names when the player's longest open window closes, formatted by `SwedishDates.Relative` like the web app's `formatStockholmDateTime`), `JoinPending`, `MemberActivated`. Each contains an unsubscribe link with an HMAC-signed token (confirm page on GET, change on POST) and RFC 8058 `List-Unsubscribe-Post` headers.
 
-Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`: `For(tradingDay, cadence)`, `Open(now, cadencesForSeason)` (union of the player's active leagues' cadences, Daily if none) and `Next(...)`. `CheckInValidator` stores a check-in against the open window's trading day and returns `WindowClosed` otherwise (API: 409 `check_in_closed` with `nextWindowOpensAt`). `GET /me` returns `openWindow { tradingDay, closesAt }` and `nextWindowOpensAt`. `ReminderPolicy` keys windows by cadence and trading day (`W:2026-09-25`) and reminds at 08:00 the day after (20:00 on the season's last trading day). Times are tunables in `GameConfig`.
+Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`: `For(tradingDay, cadence)`, `Open(now, cadencesForSeason)` (union of the player's active leagues' cadences, Daily if none) and `Next(...)`. `CheckInValidator` stores a check-in against the open window's trading day and returns `WindowClosed` otherwise (API: 409 `check_in_closed` with `nextWindowOpensAt`). `GET /me` returns `openWindow { tradingDay, closesAt }` and `nextWindowOpensAt`. `ReminderPolicy` keys windows by cadence and trading day (`W:2026-09-25`) and reminds at 08:00 the day after (20:00 on the season's last trading day). Times are tunables in `GameConfig`. Trading days (`PeriodCalculator.IsTradingDay`) are `GameConfig.TradingDays` minus `Domain/Periods/ExchangeHolidays`, the Nasdaq Stockholm closed days computed from rules (fixed dates, Easter offsets, Midsommarafton).
 
 `EmailOptions` and `AppLinkOptions` are validated at startup (`ValidateOnStart`): unsubscribe key ≥ 32 chars, Acs needs sender + endpoint/connection string, links must be absolute URLs. A missing Key Vault secret fails the deployment rather than returning 500 from the Stripe webhook. Build-time OpenAPI generation skips this check.
 
@@ -317,6 +317,5 @@ Each milestone ends with passing tests and a commit.
 
 ## 13. Open technical questions
 
-- Swedish exchange holiday calendar (v1 treats all weekdays as trading days).
 - Whether to move from the SQL free offer to paid serverless once paying users arrive (removes auto-pause latency).
 - Domain name.

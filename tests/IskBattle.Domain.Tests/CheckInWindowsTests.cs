@@ -36,21 +36,44 @@ public class CheckInWindowsTests
     public void No_windows_on_weekends() =>
         Assert.All(Enum.GetValues<Cadence>(), c => Assert.Null(CheckInWindows.For(D(2026, 9, 26), c)));
 
+    [Fact]
+    public void No_windows_on_exchange_holidays() =>
+        Assert.All(Enum.GetValues<Cadence>(), c => Assert.Null(CheckInWindows.For(D(2026, 4, 3), c))); // Långfredagen
+
+    [Fact]
+    public void Weekly_window_moves_to_the_weeks_last_trading_day_when_friday_is_a_holiday()
+    {
+        // Långfredagen 2026: Thursday 2 April until Sunday 23:59.
+        Assert.Equal(new CheckInWindow(D(2026, 4, 2), T(2026, 4, 2, 22, 30), T(2026, 4, 6, 0)), CheckInWindows.For(D(2026, 4, 2), Cadence.Weekly));
+        // Christmas 2026 (Thu–Sat): Wednesday 23 December.
+        Assert.Equal(T(2026, 12, 28, 0), CheckInWindows.For(D(2026, 12, 23), Cadence.Weekly)!.Closes);
+        Assert.Null(CheckInWindows.For(D(2026, 12, 22), Cadence.Weekly));
+    }
+
+    [Fact]
+    public void Daily_window_before_a_holiday_still_closes_at_0900_the_next_day() =>
+        Assert.Equal(T(2026, 4, 3, 9), CheckInWindows.For(D(2026, 4, 2), Cadence.Daily)!.Closes);
+
+    [Fact]
+    public void Monthly_window_skips_a_holiday_when_finding_the_next_trading_day() =>
+        // Thu 30 Apr 2026; 1 May is a Friday holiday → Mon 4 May 09:00.
+        Assert.Equal(T(2026, 5, 4, 9), CheckInWindows.For(D(2026, 4, 30), Cadence.Monthly)!.Closes);
+
     [Theory]
     [InlineData(Cadence.Daily)]
     [InlineData(Cadence.Weekly)]
     [InlineData(Cadence.Monthly)]
     public void Season_end_has_a_window_for_every_cadence_closing_at_midnight(Cadence cadence)
     {
-        // Thursday 31 Dec 2026 is the last trading day; brokers reset "i år" at midnight.
-        Assert.Equal(new CheckInWindow(D(2026, 12, 31), T(2026, 12, 31, 22, 30), T(2027, 1, 1, 0)), CheckInWindows.For(D(2026, 12, 31), cadence));
+        // Wednesday 30 Dec 2026 is the last trading day (Nyårsafton is closed); brokers reset "i år" at midnight.
+        Assert.Equal(new CheckInWindow(D(2026, 12, 30), T(2026, 12, 30, 22, 30), T(2027, 1, 1, 0)), CheckInWindows.For(D(2026, 12, 30), cadence));
         // 2022 ended on a Saturday: the last trading day is Friday 30 Dec, still closing at New Year.
         Assert.Equal(T(2023, 1, 1, 0), CheckInWindows.For(D(2022, 12, 30), cadence)!.Closes);
     }
 
     [Fact]
     public void Day_before_season_end_is_not_a_season_end() =>
-        Assert.Equal((false, true), (CheckInWindows.IsSeasonEnd(D(2026, 12, 30)), CheckInWindows.IsSeasonEnd(D(2026, 12, 31))));
+        Assert.Equal((false, true, false), (CheckInWindows.IsSeasonEnd(D(2026, 12, 29)), CheckInWindows.IsSeasonEnd(D(2026, 12, 30)), CheckInWindows.IsSeasonEnd(D(2026, 12, 31))));
 
     [Fact]
     public void Unknown_cadence_throws() =>
@@ -92,9 +115,9 @@ public class CheckInWindowsTests
     }
 
     [Fact]
-    public void Weekly_player_gets_the_season_end_window_before_the_new_years_friday() =>
+    public void Weekly_player_gets_the_season_end_window_and_skips_the_new_years_holiday() =>
         Assert.Equal(
-            [D(2026, 12, 25), D(2026, 12, 31), D(2027, 1, 1)],
+            [D(2026, 12, 23), D(2026, 12, 30), D(2027, 1, 8)],
             new[] { T(2026, 12, 21, 12), T(2026, 12, 26, 12), T(2027, 1, 1, 0) }
                 .Select(t => CheckInWindows.Next(t, Cadences(Cadence.Weekly)).TradingDay));
 
@@ -104,7 +127,7 @@ public class CheckInWindowsTests
         // Weekly in 2026, Daily from 2027.
         Func<int, IReadOnlyCollection<Cadence>> cadences = season => season == 2026 ? [Cadence.Weekly] : [Cadence.Daily];
 
-        Assert.Equal(D(2026, 12, 31), CheckInWindows.Next(T(2026, 12, 28, 12), cadences).TradingDay);
+        Assert.Equal(D(2026, 12, 30), CheckInWindows.Next(T(2026, 12, 28, 12), cadences).TradingDay);
         Assert.Equal(D(2027, 1, 4), CheckInWindows.Next(T(2027, 1, 2, 0), cadences).TradingDay);
     }
 

@@ -21,7 +21,7 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 - UI language Swedish, code/docs English. Percentages `decimal`, money integer öre, tunables only in `GameConfig`,
   time via injected `TimeProvider`, business time Europe/Stockholm.
 
-## Status (as of 2026-10-05)
+## Status (as of 2026-10-21)
 
 | Milestone | State |
 |---|---|
@@ -42,11 +42,12 @@ Work after milestone 7 (2026-10-05):
 - `24e77e8` friendlier window times on Home ("ikväll kl. 22.30"), `Dev:Now` dev clock.
 - `0f45b6d` + `4f63beb` reminder job moved from Azure Functions (15-min timer) to `IskBattle.Jobs`, a Container Apps
   Job on cron with a DB-free time gate; root `Dockerfile` builds API + job into one image.
+- 2026-10-21: Swedish exchange holidays as non-trading days; reminder email names the closing time.
 
 The user clicked through the app locally (2026-10-05) and said it matches their idea; they have "some minor things"
 to raise later – ask for them.
 
-Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 302 .NET + 23 web, all green;
+Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 337 .NET + 23 web, all green;
 StandingsCalculator 100 % branch coverage (CI gate).
 
 **Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
@@ -70,7 +71,7 @@ src/IskBattle.Api             Minimal API. Auth/{CurrentUser upsert filter, DevA
                               (endpoint-filter authorization, rowversion save), Endpoints/*, Contracts.cs, Problems.cs.
                               Build writes OpenAPI to src/web/src/api/openapi.json
 src/IskBattle.Jobs            Console (generic host): `reminders` -> ReminderJob; Container Apps Job on UTC cron
-                              0 6,7 * * * and 0 18,19 29-31 12 *. ReminderPolicy.IsRunTime gates before any DB access.
+                              0 6,7 * * * and 0 18,19 28-30 12 *. ReminderPolicy.IsRunTime gates before any DB access.
 Dockerfile                    One image: /app/api (default entrypoint, :8080) + /app/jobs; job overrides the command
 src/web                       Vite + React 19 + TS 5.9 + React Router 7 + TanStack Query, PWA, openapi-fetch typed
                               client (npm run generate:api), hooks in src/hooks/queries.ts, strings in
@@ -106,6 +107,10 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
   09:00 (Daily/Monthly next trading day) or Sunday midnight (Weekly); union of the player's cadences, Daily with no
   league; season end = window for all cadences closing at midnight 31 Dec. Reminders 08:00 the day after (20:00 on
   the season's last trading day). API tests' clock defaults to Monday 22:45 so the Daily window is open.
+- Trading days exclude Nasdaq Stockholm holidays (`Periods/ExchangeHolidays`, rule-based, half days trade). Weekly
+  window on the week's last trading day; season ends on the last trading day before Nyårsafton (28–30 Dec), so the
+  season-end cron is `28-30 12`. Reminder email says "Rapportera senast …" (`SwedishDates.Relative`, longest open
+  window of the player's cadences).
 - Hosts get one pending-join email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control
   chars in display and league names. Unsubscribe GET = confirm page, POST = change.
 
@@ -140,13 +145,12 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
    `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in
    deploy, CORS for the app origin, custom domains. Also an Entra External ID SPA + API app registration
    (`VITE_ENTRA_*`, `Auth:Authority/Audience`); the API's access token **must include the `email` optional claim**
-   (and `oid`), otherwise no email is ever sent. Container Apps Job: cron `0 6,7 * * *` + `0 18,19 29-31 12 *`
+   (and `oid`), otherwise no email is ever sent. Container Apps Job: cron `0 6,7 * * *` + `0 18,19 28-30 12 *`
    (UTC), command `dotnet /app/jobs/IskBattle.Jobs.dll reminders`, retry limit > 0. Images to GHCR, GitHub Actions
    with OIDC. Application Insights is not wired into the API or the job yet (the old Functions app had it).
    Docker Desktop must be running for the .NET tests.
 2. Milestone 9 – Swedish terms and privacy policy (data stored: email, display name, YTD %, purchases; 7-year
    bookkeeping retention), company details in footer, Stripe live keys.
-3. Open items worth raising with the user: Swedish exchange-holiday calendar (now matters more: check-ins belong to
-   trading days, and 31 Dec isn't a Nasdaq Stockholm trading day); the reminder email doesn't say when the window
-   closes (Daily closes 09:00, one hour after the reminder) – suggested adding the closing time; the user's minor UI
-   points.
+3. Step 1 of the agreed plan (2026-10-21: finish local work, then an Azure dev env on free tiers with Stripe test
+   mode, domain/company/live keys only before launch): holidays + reminder closing time done; still open are the
+   user's minor UI points (not yet given) and draft legal pages.

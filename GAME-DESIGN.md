@@ -45,7 +45,7 @@ All windows are Europe/Stockholm.
 | Cadence | Window opens | Window closes | Attributed to |
 |---|---|---|---|
 | Daily | 22:30 on a trading day | 09:00 the next day | That trading day |
-| Weekly | Friday 22:30 | Sunday 23:59 | That Friday |
+| Weekly | 22:30 on the week's last trading day (usually Friday) | Sunday 23:59 | That trading day |
 | Monthly | 22:30 on the last trading day of the month | 09:00 on the next trading day | That last trading day |
 
 - 22:30 clears the US close with margin in both DST configurations.
@@ -67,7 +67,8 @@ All windows are Europe/Stockholm.
 - **Several cadences:** a player may check in whenever *any* of their active leagues' cadences has an open window (the union). A Daily + Weekly player can still report Friday on Saturday afternoon; a Weekly-only player can't check in Monday–Thursday. All windows open at 22:30 on their trading day, so open windows always report on the same trading day.
 - **No active league** (new player, or only Pending): Daily windows apply, so they can get started.
 - **Monthly close:** 09:00 on the first trading day after the month's last trading day (Wed 30 Sep → Thu 1 Oct 09:00; Fri 30 Oct → Mon 2 Nov 09:00), so it also never includes the next trading day.
-- **Season end:** brokers reset "i år" at midnight on New Year's Eve. The year's last trading day has a window for **every** cadence (so Weekly leagues also get the season's final figure, e.g. Thu 31 Dec 2026), and no window reporting on a December day stays open past 23:59 on 31 Dec. 31 Dec is not a Nasdaq Stockholm trading day, but v1 treats all weekdays as trading days.
+- **Season end:** brokers reset "i år" at midnight on New Year's Eve. The year's last trading day has a window for **every** cadence (so Weekly leagues also get the season's final figure, e.g. Wed 30 Dec 2026, since Nyårsafton is closed), and no window reporting on a December day stays open past 23:59 on 31 Dec.
+- **Exchange holidays** (§5) are treated like weekends: no window opens that evening, and the day belongs to the Dag of the trading day before. The Weekly window opens on the week's last trading day when Friday is a holiday (Långfredagen 2026: Thu 2 Apr 22:30 – Sun 5 Apr 23:59). A Daily window before a holiday still closes at 09:00 the next day. A season-split week with no trading day (e.g. Fri 1 – Sun 3 Jan 2027) has no Weekly window.
 - The typo guard compares with the most recent check-in for an earlier trading day in the same season.
 
 ### Reminders
@@ -78,12 +79,13 @@ is a better habit anchor.
 
 | Effective cadence | Reminder | Condition |
 |---|---|---|
-| Daily | 08:00 Tue–Sat (reporting on the previous trading day) | No check-in for that trading day |
-| Weekly | 08:00 Saturday | No check-in for that Friday |
+| Daily | 08:00 the day after each trading day | No check-in for that trading day |
+| Weekly | 08:00 the day after the week's last trading day (usually Saturday) | No check-in for that trading day |
 | Monthly | 08:00 on the day after the last trading day of the month | No check-in for that day |
 
 - **Season end:** the final window closes at midnight, so its reminder goes out at **20:00 on the year's last trading day** (all cadences), before the window opens at 22:30.
 - Reminders are sent by one scheduled run at 08:00 (20:00 at season end), not by polling, to keep database costs down. A failed run is retried; beyond that there is no guaranteed catch-up later in the window.
+- The reminder says when the player's longest open window closes, in the same style as Home: "Rapportera senast idag kl. 09.00", "… imorgon kl. 23.59", "… måndag 2 november kl. 09.00".
 
 ## 5. Cadence
 
@@ -96,7 +98,7 @@ Each league picks its **most frequent** check-in cadence: `Daily`, `Weekly` or `
 | Monthly | Månad, År |
 
 - Cadence can only be changed **between seasons**. The UI may queue a change for the next season.
-- Trading days in v1 = Monday–Friday. Swedish exchange holidays are a later refinement.
+- Trading days = Monday–Friday except days when Nasdaq Stockholm is closed: Nyårsdagen, Trettondedag jul, Långfredagen, Annandag påsk, 1 maj, Kristi himmelsfärdsdag, Sveriges nationaldag, Midsommarafton, Julafton, Juldagen, Annandag jul and Nyårsafton. They are computed from rules (no yearly list); half days are normal trading days.
 
 ## 6. Standings
 
@@ -207,7 +209,7 @@ Other emails: join pending (to owner and co-hosts), member activated (to the joi
 
 ## 11. Later ideas
 
-Shareable weekly result cards, push notifications, badges and reactions, creator/community tier above 250, Swedish exchange holiday calendar, English UI.
+Shareable weekly result cards, push notifications, badges and reactions, creator/community tier above 250, English UI.
 
 ## 12. Decision log
 
@@ -230,3 +232,5 @@ Shareable weekly result cards, push notifications, badges and reactions, creator
 | 2026-10-05 | §4a check-in windows: attributed to the trading day; 22:30 opens, 09:00 / Sunday close; reminders at 08:00. Supersedes "stored against today's date" and the 18:00 reminders (incl. the same-day New Year split-week rule) |
 | 2026-10-05 | Windows are the union of the player's cadences; Daily with no active league; Monthly closes 09:00 next trading day; season end = window for all cadences closing 23:59 on 31 Dec, reminder 20:00 |
 | 2026-10-05 | Reminder job runs on cron at 08:00 Stockholm (plus 20:00 on 29–31 Dec), not every 15 minutes; catch-up only via retries. Supersedes "reminders catch up within their window" |
+| 2026-10-21 | Swedish exchange holidays are not trading days, computed from rules (moved from later ideas into v1). Weekly window on the week's last trading day when Friday is closed. Season ends on the last trading day before Nyårsafton; season-end cron moves to 28–30 Dec |
+| 2026-10-21 | Reminder email says when the player's longest open window closes ("Rapportera senast …") |

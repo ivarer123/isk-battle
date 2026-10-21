@@ -1,4 +1,5 @@
 using IskBattle.Domain;
+using IskBattle.Domain.CheckIns;
 using IskBattle.Domain.Leagues;
 using IskBattle.Domain.Reminders;
 using IskBattle.Domain.Time;
@@ -53,12 +54,15 @@ public sealed partial class ReminderJob(
         var sent = 0;
         foreach (var user in candidates)
         {
-            var cadence = LeagueRules.MostFrequent(user.Leagues.Select(l =>
-                new Domain.Entities.League { Cadence = l.Cadence, NextSeasonCadence = l.NextSeasonCadence, NextCadenceSeason = l.NextCadenceSeason }
-                    .CadenceFor(season)))!.Value;
-            var decision = ReminderPolicy.Evaluate(cadence, now, user.LatestCheckIn);
+            var leagues = user.Leagues
+                .Select(l => new Domain.Entities.League { Cadence = l.Cadence, NextSeasonCadence = l.NextSeasonCadence, NextCadenceSeason = l.NextCadenceSeason })
+                .ToList();
+            IReadOnlyCollection<Cadence> CadencesFor(int s) => leagues.Select(l => l.CadenceFor(s)).ToList();
+            var decision = ReminderPolicy.Evaluate(LeagueRules.MostFrequent(CadencesFor(season))!.Value, now, user.LatestCheckIn);
             if (!decision.IsDue || decision.WindowKey == user.LastReminderWindowKey)
                 continue;
+            // The player may use the longest of their cadences' windows, so that is the one to name.
+            var closes = CheckInWindows.Open(now.DateTime, CadencesFor)!.Closes;
 
             // Claim the window atomically; another run that got here first wins.
             var claimed = await db.Users
@@ -70,7 +74,9 @@ public sealed partial class ReminderJob(
             try
             {
                 await sender.SendAsync(
-                    EmailTemplates.CheckInReminder(user.Email, user.DisplayName, links.App(), links.Unsubscribe(user.Id)),
+                    EmailTemplates.CheckInReminder(
+                        user.Email, user.DisplayName, SwedishDates.Relative(closes, DateOnly.FromDateTime(now.DateTime)),
+                        links.App(), links.Unsubscribe(user.Id)),
                     cancellationToken);
                 sent++;
             }

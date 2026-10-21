@@ -39,7 +39,7 @@ public static class GameConfig
     public static readonly TimeSpan ReminderRunSpan = TimeSpan.FromHours(1);
     public const string TimeZoneId = "Europe/Stockholm";
 
-    /// <summary>Trading days in v1 = Monday–Friday. Swedish exchange holidays are a later refinement.</summary>
+    /// <summary>Weekdays the exchange can be open; <c>Periods.ExchangeHolidays</c> removes the Swedish exchange holidays.</summary>
     public static readonly FrozenSet<DayOfWeek> TradingDays = new[]
     {
         DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday,

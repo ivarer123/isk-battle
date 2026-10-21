@@ -10,7 +10,8 @@ public sealed record ReminderDecision(string WindowKey, bool IsDue);
 /// <summary>
 /// When to remind a player to check in (GAME-DESIGN.md §4a), at most once per window. The reminder goes out at
 /// 08:00 the day after the window's trading day (inside the open window), if there is no check-in for that
-/// trading day: Daily Tue–Sat, Weekly on Saturday, Monthly the day after the month's last trading day.
+/// trading day: Daily after every trading day, Weekly after the week's last trading day (usually on Saturday),
+/// Monthly after the month's last trading day.
 /// The season's final window closes at midnight, so its reminder goes out at 20:00 on the last trading day.
 /// <para>
 /// The reminder job runs on a schedule (ARCHITECTURE.md §8), not by polling. <see cref="Evaluate"/> still treats a

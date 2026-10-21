@@ -10,7 +10,7 @@ public sealed record CheckInWindow(DateOnly TradingDay, DateTime Opens, DateTime
 /// Europe/Stockholm local.
 /// <list type="bullet">
 /// <item>Daily: every trading day, 22:30 until 09:00 the next day.</item>
-/// <item>Weekly: Fridays, 22:30 until Sunday 23:59.</item>
+/// <item>Weekly: the week's last trading day (usually Friday), 22:30 until Sunday 23:59.</item>
 /// <item>Monthly: the month's last trading day, 22:30 until 09:00 on the next trading day.</item>
 /// <item>Season end: the year's last trading day has a window for every cadence, and no window reporting on
 /// a December day stays open past midnight on New Year's Eve (brokers reset "i år" at midnight).</item>
@@ -31,7 +31,7 @@ public static class CheckInWindows
         DateTime? closes = IsSeasonEnd(tradingDay) ? NewYear(tradingDay) : cadence switch
         {
             Cadence.Daily => tradingDay.AddDays(1).ToDateTime(GameConfig.CheckInWindowCloses),
-            Cadence.Weekly when tradingDay.DayOfWeek == DayOfWeek.Friday => tradingDay.AddDays(3).ToDateTime(TimeOnly.MinValue),
+            Cadence.Weekly when IsLastTradingDayOfWeek(tradingDay) => NextMonday(tradingDay).ToDateTime(TimeOnly.MinValue),
             Cadence.Monthly when IsLastTradingDayOfMonth(tradingDay) => NextTradingDay(tradingDay).ToDateTime(GameConfig.CheckInWindowCloses),
             Cadence.Weekly or Cadence.Monthly => null,
             _ => throw new ArgumentOutOfRangeException(nameof(cadence), cadence, null),
@@ -87,6 +87,10 @@ public static class CheckInWindows
     }
 
     private static bool IsLastTradingDayOfMonth(DateOnly day) => NextTradingDay(day).Month != day.Month;
+
+    private static bool IsLastTradingDayOfWeek(DateOnly day) => NextTradingDay(day) >= NextMonday(day);
+
+    private static DateOnly NextMonday(DateOnly day) => day.AddDays(7 - ((int)day.DayOfWeek + 6) % 7);
 
     private static DateOnly NextTradingDay(DateOnly day)
     {

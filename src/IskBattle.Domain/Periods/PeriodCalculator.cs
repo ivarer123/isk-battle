@@ -7,13 +7,15 @@ namespace IskBattle.Domain.Periods;
 /// partition the season without gaps. An ISO week spanning New Year (e.g. 2026-W53) is split in two.
 /// </para>
 /// <para>
-/// Dag runs from a trading day to the next trading day, so weekend check-ins belong to the preceding
-/// Friday. The season's first Dag starts on 1 January, even when 1 January is not a trading day.
+/// Dag runs from a trading day to the next trading day, so weekend and holiday check-ins belong to the
+/// preceding trading day. The season's first Dag starts on 1 January, even when 1 January is not a trading day.
 /// </para>
 /// </summary>
 public static class PeriodCalculator
 {
-    public static bool IsTradingDay(DateOnly date) => GameConfig.TradingDays.Contains(date.DayOfWeek);
+    /// <summary>A weekday on which Nasdaq Stockholm is open (<see cref="ExchangeHolidays"/>).</summary>
+    public static bool IsTradingDay(DateOnly date) =>
+        GameConfig.TradingDays.Contains(date.DayOfWeek) && !ExchangeHolidays.IsHoliday(date);
 
     public static Period For(PeriodType type, DateOnly date) => type switch
     {

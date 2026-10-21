@@ -9,13 +9,15 @@ public static class EmailTemplates
     // Keeps å, ä, ö readable instead of numeric entities.
     private static readonly HtmlEncoder Html = HtmlEncoder.Create(UnicodeRanges.All);
 
-    public static EmailMessage CheckInReminder(string to, string displayName, string appUrl, string unsubscribeUrl) =>
+    /// <param name="closes">When the window closes, relative to the send date, e.g. "idag kl. 09.00" (<see cref="SwedishDates.Relative"/>).</param>
+    public static EmailMessage CheckInReminder(string to, string displayName, string closes, string appUrl, string unsubscribeUrl) =>
         Build(to, unsubscribeUrl,
             subject: "Dags att uppdatera din utveckling",
             greeting: $"Hej {displayName}!",
             paragraphs:
             [
                 "Det är dags att rapportera din utveckling i år. Öppna ISK Battle och ange siffran från kontoöversikten hos din bank eller mäklare.",
+                $"Rapportera senast {closes}.",
                 "Ingen fara om du missar – du visas som Pausad och är tillbaka i tabellen nästa gång du rapporterar.",
             ],
             button: ("Uppdatera nu", appUrl));
