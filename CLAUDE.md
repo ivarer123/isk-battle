@@ -1,160 +1,122 @@
-# ISK Battle – context for Claude Code
+# ISK Battle – Claude's working notes
 
-Side project by the user. Friends compare year-to-date (YTD) development of their main ISK account in season-long
-leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encourage risk-taking.
+The user's side project: friends compare year-to-date (YTD) % of their main ISK account in season-long leagues.
+Self-reported, trust-based, no prizes or penalties; nothing may encourage risk-taking. The user doesn't read this
+file – it's for me. Keep it current and terse; history lives in git.
 
-- **GAME-DESIGN.md** owns the rules (source of truth – "if code and doc disagree, the doc wins"). The
-  "Clarifications" in §4a (check-in windows) and §6 (standings), and the §12 decision log, hold every rule agreed
-  with the user so far.
-- **ARCHITECTURE.md** owns the technical design; §12 is the milestone build order.
-- **README.md** has run/test/migration/Stripe instructions.
+Sources of truth: **GAME-DESIGN.md** = rules (doc beats code; §4a windows, §6 standings, §12 decision log).
+**ARCHITECTURE.md** = technical design (§10 hosting, §12 milestones). **README.md** = run/test/Stripe/**Deploy**.
 
-## How to work with this user
+## Rules for working with this user
 
-- **Never resolve spec ambiguity by guessing.** List ambiguities/contradictions and ask (AskUserQuestion with a
-  recommended option first). Record answers in GAME-DESIGN.md (clarification + decision-log row) in the same commit.
-- Small implementation-level choices may be made conservatively, but list them explicitly in the summary so the user
-  can veto them.
-- One commit per milestone, each ending with passing tests. Commit messages end with the Co-Authored-By line.
-- Repo is **local only** (no remote). The `gh` CLI on this machine is a work account (`forefront-romson_skistar`) –
-  do not create repos or push with it. The user will push to their personal GitHub.
-- UI language Swedish, code/docs English. Percentages `decimal`, money integer öre, tunables only in `GameConfig`,
-  time via injected `TimeProvider`, business time Europe/Stockholm.
+- Never guess on spec ambiguity: ask (AskUserQuestion, recommended option first), then record the answer in
+  GAME-DESIGN.md (clarification + §12 decision-log row) in the same commit.
+- Small implementation choices: decide conservatively, list them in the summary so the user can veto.
+- Commit per finished piece with passing tests; message ends with the Co-Authored-By line. Push to `origin` freely.
+- Azure/GitHub actions that create or change things: show the commands and get an OK first (user approves in
+  batches, e.g. "go for 1–3").
+- UI Swedish, code/docs English. Percentages `decimal`, money integer öre, tunables only in `GameConfig`, time via
+  injected `TimeProvider`, business time Europe/Stockholm.
 
-## Status (as of 2026-10-21)
+## Accounts – never mix with work
 
-| Milestone | State |
-|---|---|
-| 1 Skeleton + CI | done (`7f0c5b8`) |
-| 2 Domain | done (`3598ec8`) |
-| 3 Persistence | done (`8f546bc`) |
-| 4 API core | done (`7b918c0`) |
-| 5 Frontend | done (`5026f46`) |
-| 6 Email + reminders | done (`792cafc`) |
-| 7 Payments (Stripe) | done (`df844bc`) |
-| 8 Infrastructure (Bicep, deploy, domains) | **in progress** – code done (`infra/`, deploy workflow); provisioning not started |
-| 9 Legal pages + launch checklist | not started (legal pages are placeholders) |
+- **GitHub:** personal `ivarer123`, repo `ivarer123/isk-battle` (private; GHCR package `isk-battle` is public).
+  `gh` also holds the work account `forefront-romson_skistar` – check `gh api user --jq .login` = `ivarer123`
+  before any `gh` call. Repo-local git uses `!gh auth git-credential` (active gh account).
+- **Azure:** personal subscription `f15c93af-49fc-4a88-b904-693e0c7947c9`, tenant `3330bb49-…`
+  (`ivarelfvingmail.onmicrosoft.com`). The same `az` login sees ~30 SkiStar subscriptions (tenant `a7624529-…`):
+  **always pass `--subscription`**; never touch the work tenant. Admin object ID `8cebb3a7-93da-4a98-8bbb-571d7f96bac7`,
+  login `ivar.elfvin_gmail.com#EXT#@ivarelfvingmail.onmicrosoft.com`. Secrets never go through chat or files.
 
-Work after milestone 7 (2026-10-05):
-- `64fb88f` code-review fixes: overcharge refunds, startup config validation, pending-join email spam, `oid`,
-  400s for out-of-range dates, unsubscribe confirm page.
-- `df1ca34` check-in windows and trading-day attribution (GAME-DESIGN §4a), reminders at 08:00.
-- `24e77e8` friendlier window times on Home ("ikväll kl. 22.30"), `Dev:Now` dev clock.
-- `0f45b6d` + `4f63beb` reminder job moved from Azure Functions (15-min timer) to `IskBattle.Jobs`, a Container Apps
-  Job on cron with a DB-free time gate; root `Dockerfile` builds API + job into one image.
-- 2026-10-21: Swedish exchange holidays as non-trading days; reminder email names the closing time.
+## Where we are (2026-10-21) – resume here
 
-The user clicked through the app locally (2026-10-05) and said it matches their idea; they have "some minor things"
-to raise later – ask for them.
+Milestones 1–7 done; 8 (infrastructure) in progress; 9 (legal pages, launch) not started.
+Agreed plan: one Azure environment that becomes prod at launch; until then Azure default URLs, Stripe **test
+mode**, Azure-managed email sender. Domain, company (needed for Stripe live + Swish + legal footer) and live keys
+only right before launch.
 
-Agreed pace: build continuously, pause before Azure deployment. Tests at last run: 337 .NET + 23 web, all green;
-StandingsCalculator 100 % branch coverage (CI gate).
+**Done in Azure** (Bicep pass 1, `rg-iskbattle`, Sweden Central, verified): Log Analytics + App Insights,
+`id-iskbattle` (runtime), `id-iskbattle-github` (OIDC, client ID `46b38212-2b5f-4ecf-bdb7-103914cae7b9`,
+Contributor on RG), Key Vault `kv-iskbattle-abqpsx`, SQL `sql-iskbattle-abqpsx.database.windows.net` / `iskbattle`
+(free offer confirmed), ACS sender `DoNotReply@3ddcec5c-2868-4cf2-ae36-ace87b7ac2af.azurecomm.net`, Container Apps
+env `cae-iskbattle`, SWA `swa-iskbattle` (East US 2 – West Europe closed to new customers) at
+`https://lively-desert-0f78c2d0f.3.azurestaticapps.net`, budget 100/month. GitHub: CI green on GitHub; Deploy
+workflow pushed the image to GHCR (its Azure/web jobs skip until repo variable `AZURE_CLIENT_ID` exists).
 
-**Never verified for real (no accounts yet):** Entra/MSAL sign-in, real Stripe checkout, ACS email delivery, the
-Container Apps Job in Azure, and the GitHub Actions workflow. Verified locally: the UI in a browser (dev sign-in,
-Playwright), the reminder job and the Docker image (API + job against local SQL).
+**Next, in order** (README "Deploy" has the exact commands; env vars `ISK_*` as listed there, budget email = user's):
+1. *(user said "hold" 2026-10-21 – ask before doing)* SQL access for `id-iskbattle`: temporary firewall rule for
+   the current IP, run the 4 T-SQL lines (CREATE USER … FROM EXTERNAL PROVIDER + datareader/datawriter/ddladmin)
+   with a scratch `dotnet run` script using `Authentication=Active Directory Default`, remove the rule.
+2. *(hold)* `Email--UnsubscribeKey` into Key Vault via `openssl rand -base64 48` (never printed).
+3. Ask the user: Entra External ID tenant created? Stripe test account? If Stripe isn't ready, offer placeholder
+   `Stripe--SecretKey`/`Stripe--WebhookSecret` so pass 2 can run.
+4. Entra app registrations (user runs `! az login --tenant <external> --allow-no-subscriptions`): API (scope
+   `access_as_user`, access-token optional claim `email`, v2 tokens) + SPA (redirects: app URL, localhost:5173),
+   link SPA to the email-OTP user flow. **Without the `email` claim no email is ever sent.**
+5. Pass 2: `ISK_DEPLOY_APPS=true ISK_AUTH_AUTHORITY=https://<sub>.ciamlogin.com/<tenant-id>/v2.0
+   ISK_AUTH_AUDIENCE=<api-client-id>`; what-if first. Later infra redeploys must pass `ISK_IMAGE` = running image.
+6. GitHub repo variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VITE_API_BASE_URL`,
+   `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_AUTHORITY`, `VITE_API_SCOPE`) + secret `SWA_DEPLOYMENT_TOKEN`; rerun Deploy.
+7. Stripe webhook `<apiUrl>/webhooks/stripe` → `Stripe--WebhookSecret`; restart API revision.
+8. Verify end to end (sign-up → `/me` has email; check-in; test checkout 4242…; reminder email; App Insights;
+   SQL auto-pauses; cost ~0). None of Entra/MSAL, Stripe checkout, ACS delivery, Container Apps Jobs, the API in
+   Azure or the Deploy workflow's Azure/web jobs has ever run for real.
 
-**Blocked on the user for milestone 8/launch:** Azure subscription, Entra External ID tenant, domain name, Stripe
-account with Swish (needs company / organisationsnummer – also required for the legal footer).
+**Other open items:** the user's "minor UI points" (promised since 2026-10-05 – ask); draft Swedish terms +
+privacy policy (data: email, display name, YTD %, purchases; 7-year bookkeeping retention; company details unknown
+yet); at launch SQL `freeLimitExhaustionBehavior` → `BillOverUsage`, custom domains (`extraAppOrigins`), ACS
+custom domain (SPF/DKIM/DMARC), Stripe live + Swish. GitHub Actions warns about Node 20 actions (bump
+checkout/setup-node majors sometime).
 
 ## Solution map
 
 ```
-src/IskBattle.Domain          BCL only. Entities, GameConfig, Periods/PeriodCalculator, Standings/StandingsCalculator,
-                              CheckIns/CheckInValidator, Leagues/{LeagueRules,MembershipService,InviteCode},
-                              Reminders/ReminderPolicy, Purchases/PurchaseRules, Time/StockholmTime
-src/IskBattle.Infrastructure  EF Core (SQL Server) + migrations, CheckInQueries.ForStandingsAsync (two indexed
-                              queries), Email (IEmailSender: Acs/Console, Swedish templates, HMAC UnsubscribeTokens,
-                              EmailLinks), Notifications/EmailNotificationService, Reminders/ReminderJob,
-                              Payments (IPaymentGateway, StripePaymentGateway), DependencyInjection.AddInfrastructure
-src/IskBattle.Api             Minimal API. Auth/{CurrentUser upsert filter, DevAuthHandler}, Leagues/LeagueAccess
-                              (endpoint-filter authorization, rowversion save), Endpoints/*, Contracts.cs, Problems.cs.
-                              Build writes OpenAPI to src/web/src/api/openapi.json
-src/IskBattle.Jobs            Console (generic host): `reminders` -> ReminderJob; Container Apps Job on UTC cron
-                              0 6,7 * * * and 0 18,19 28-30 12 *. ReminderPolicy.IsRunTime gates before any DB access.
-Dockerfile                    One image: /app/api (default entrypoint, :8080) + /app/jobs; job overrides the command
-infra/                        Bicep, subscription scope: main.bicep (RG, budget) → resources.bicep (monitoring,
-                              identities, KV, SQL free offer, ACS, CAE, SWA) → apps.bicep (API + jobs, pass 2 via
-                              ISK_DEPLOY_APPS). main.bicepparam reads personal values from ISK_* env vars
-.github/workflows/deploy.yml  After CI on main: GHCR image → caj-migrate → API + reminder jobs → SWA upload
-src/web                       Vite + React 19 + TS 5.9 + React Router 7 + TanStack Query, PWA, openapi-fetch typed
-                              client (npm run generate:api), hooks in src/hooks/queries.ts, strings in
-                              src/i18n/sv.json via t(), screens in src/pages
-tests/IskBattle.Domain.Tests  Pure unit tests
-tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebApplicationFactory (ApiFactory with
-                              TestAuthHandler, TestClock, RecordingEmailSender, FakePaymentGateway), persistence,
-                              reminder job and Stripe signature tests
+src/IskBattle.Domain          BCL only. GameConfig, Periods/{PeriodCalculator,ExchangeHolidays},
+                              Standings/StandingsCalculator (100 % branch coverage, CI gate), CheckIns/{CheckInWindows,
+                              CheckInValidator}, Leagues/*, Reminders/ReminderPolicy, Purchases/PurchaseRules, Time/
+src/IskBattle.Infrastructure  EF Core SQL Server + migrations, Email (Acs/Console senders, templates, SwedishDates,
+                              UnsubscribeTokens, EmailLinks), Reminders/ReminderJob, Payments (Stripe),
+                              DependencyInjection.AddInfrastructure(validateOnStart)
+src/IskBattle.Api             Minimal API, Auth (Entra JWT; DevAuthHandler in Development), Endpoints/*. Build
+                              writes OpenAPI to src/web/src/api/openapi.json. Azure Monitor when
+                              APPLICATIONINSIGHTS_CONNECTION_STRING is set
+src/IskBattle.Jobs            `reminders` | `migrate` (Container Apps Jobs, command override)
+Dockerfile                    One image: /app/api (entrypoint, :8080) + /app/jobs. Run a job locally with
+                              `--entrypoint dotnet <image> /app/jobs/IskBattle.Jobs.dll migrate`
+infra/                        main.bicep (sub scope: RG, budget) → resources.bicep → apps.bicep (pass 2, API +
+                              caj-reminders-morning/-seasonend + caj-migrate). main.bicepparam reads ISK_* env vars
+.github/workflows             ci.yml; deploy.yml (after CI on main: GHCR → caj-migrate → API/jobs → SWA)
+src/web                       Vite + React 19 + TS + React Router 7 + TanStack Query, PWA, openapi-fetch client,
+                              strings in src/i18n/sv.json, staticwebapp.config.json (SPA fallback)
+tests/                        Domain.Tests (pure); Api.Tests (Testcontainers SQL, WebApplicationFactory "Testing")
 ```
 
-## Key decisions beyond the original docs (all recorded in GAME-DESIGN.md / ARCHITECTURE.md)
+## Decisions easy to get wrong (full list in GAME-DESIGN.md)
 
-- Periods are clipped to the season (ISO week 2026-W53 splits at New Year). Dag = trading day → next trading day
-  (weekends count toward Friday). "Starts the season" = no trading day in the season before the period start.
-- Ny beats Pausad; Pausad shows last YTD of the same season only. Ties on 2-dp rounded returns, competition ranking
-  1,1,3, ties/unranked sorted by name; Ranked → Ny → Pausad.
-- Standings `date` only selects the period. Only Active members appear; join date ignored.
-- Typo guard: >20 pp vs. most recent check-in for an earlier trading day in the same season.
-- Earliest co-host = first to pay (`LeagueMember.PromotedAt`). Pending members may pay and become active co-hosts.
-- Ownership on owner leave passes among already-active members before the queue is activated.
-- A freed slot activates the first Pending member. Hosts can remove only ordinary members.
-- Cadence change is queued via `League.NextCadenceSeason` (no rollover job). Extra endpoint
-  `POST /leagues/{id}/invite-code`.
-- Pending members see league name + upgrade options only (no member list/standings).
-- One email switch (`EmailRemindersEnabled`) governs all email; unsubscribe turns it off. Reminder window claimed
-  with a conditional update before sending (at most once). No polling catch-up: the job runs once a day (cron),
-  catch-up only via job retries (exit code 1) or a later scheduled run inside the window.
-- Stripe.net 53: `AllowedPaymentMethodTypes = [card, swish]`; webhook parsed with `throwOnApiVersionMismatch:false`.
-  Concurrent same-tier buyer → `NeedsRefund`; overtaken by a smaller upgrade → `PaidNeedsPartialRefund`; both set
-  `Purchase.RefundDueOre` (manual refund). Checkout returns 503 when Stripe keys are missing.
-- Users keyed on Entra `oid`. Email/link options validated at startup (skipped for build-time OpenAPI generation).
-- Check-in windows (GAME-DESIGN §4a, `CheckInWindows`): check-ins attributed to the trading day, open 22:30, close
-  09:00 (Daily/Monthly next trading day) or Sunday midnight (Weekly); union of the player's cadences, Daily with no
-  league; season end = window for all cadences closing at midnight 31 Dec. Reminders 08:00 the day after (20:00 on
-  the season's last trading day). API tests' clock defaults to Monday 22:45 so the Daily window is open.
-- Trading days exclude Nasdaq Stockholm holidays (`Periods/ExchangeHolidays`, rule-based, half days trade). Weekly
-  window on the week's last trading day; season ends on the last trading day before Nyårsafton (28–30 Dec), so the
-  season-end cron is `28-30 12`. Reminder email says "Rapportera senast …" (`SwedishDates.Relative`, longest open
-  window of the player's cadences).
-- Hosts get one pending-join email per player and league (`JoinPendingNotice`). `NameRules` rejects links/control
-  chars in display and league names. Unsubscribe GET = confirm page, POST = change.
+- Check-ins belong to a **trading day** (Mon–Fri minus Nasdaq Stockholm holidays, rule-based). Windows open 22:30,
+  close 09:00 next day (Daily), Sunday 23:59 (Weekly, on the week's last trading day), 09:00 next trading day
+  (Monthly). Season ends on the last trading day before Nyårsafton (28–30 Dec), all cadences, closes at midnight.
+  Union of the player's cadences; Daily if no active league.
+- Reminders 08:00 the day after (20:00 at season end) from cron, at most once per window (claimed via conditional
+  update), no polling catch-up. Email names the longest open window's close ("Rapportera senast …").
+- Standings: periods clipped to season; Dag = trading day → next trading day; ties on 2-dp, ranking 1,1,3;
+  Ranked → Ny → Pausad; only Active members.
+- Payments: co-host = first payer; concurrent buys → `NeedsRefund` / `PaidNeedsPartialRefund` (manual refund);
+  checkout 503 without Stripe keys.
+- One email switch governs all email. Users keyed on Entra `oid`.
 
-## Environment gotchas
+## Gotchas
 
-- Run .NET tests with `DOCKER_API_VERSION=1.43 dotnet test` (local Docker Desktop is old, API 1.43). SQL Server image
-  runs under amd64 emulation. CI on ubuntu doesn't need this.
-- `dotnet test` uses Microsoft.Testing.Platform (configured in global.json); coverage via `coverlet.MTP` options
-  (`--coverlet --coverlet-include ... --coverlet-threshold 100 --coverlet-threshold-type branch`).
-- Repo `nuget.config` clears sources (the user's global config has an unreachable SkiStar feed).
-- `TreatWarningsAsErrors` is on everywhere; xUnit1051 is suppressed only in Api.Tests.
-- Generated enum types in `schema.d.ts` include `null`; `src/web/src/api/client.ts` exports NonNullable aliases.
-- After API contract changes: build the API (regenerates openapi.json), then `npm run generate:api` in src/web.
-  CI fails if either generated file is uncommitted.
-- Local run: SQL container `isk-battle-sql` on 1433 (password in appsettings.Development.json), API on :5080 with
-  `--launch-profile http`, Vite on :5173 proxying `/api`. Dev sign-in sends `X-Dev-User`. `Dev__Now=<ISO instant>`
-  shifts the API/job clock in Development (`DevClock`, `AddDevClock`) to try windows at other times. Run the job
-  locally: `DOTNET_ENVIRONMENT=Development dotnet run --project src/IskBattle.Jobs -- reminders`. No `chromium-cli`
-  here: drive the UI with Playwright from a scratch folder (cached browser
-  `~/Library/Caches/ms-playwright/chromium-1117`, pass it as `executablePath`).
-- The local DB has test players anna, bertil, cecilia, david (Weekly league "Veckoligan") and the user's own
-  `ivarer` (Weekly league "hejs liga"). A Weekly-only player can only check in Fri 22:30 – Sun 23:59.
-- Transitive pin in `Directory.Packages.props` (`CentralPackageTransitivePinningEnabled`): SqlClient's
-  `System.Security.Cryptography.Pkcs` 9.0.11 has advisories, and NuGet audit warnings are errors.
-- The API (like the job) catches exceptions around `RunAsync` and returns 1: otherwise a failed startup validation
-  leaves the process hanging in the container.
-- `Dockerfile`: publish uses `-p:OpenApiGenerateDocuments=false` (web client not in the build context); the job
-  catches exceptions and returns 1 because an unhandled exception after `host.StartAsync` hangs the process.
-
-## Next steps
-
-1. **Milestone 8 provisioning** (plan agreed 2026-10-21: one environment that becomes prod, Sweden Central, GHCR
-   public image, Stripe test mode, Azure default URLs until launch). Code is done; follow README "Deploy".
-   Personal subscription `f15c93af-49fc-4a88-b904-693e0c7947c9` (tenant `ivarelfvingmail.onmicrosoft.com`). The
-   same `az` login also sees ~30 SkiStar work subscriptions (tenant `a7624529-…`): **always pass
-   `--subscription`**, never touch the work tenant. Waiting on the user for: personal GitHub repo + push, Entra
-   External ID tenant (email OTP user flow), Stripe test account. Show each `az` command before running it.
-   Not yet verified in Azure: everything (Bicep only compiled; what-if not run).
-2. Milestone 9 – Swedish terms and privacy policy (data stored: email, display name, YTD %, purchases; 7-year
-   bookkeeping retention), company details in footer, Stripe live keys.
-3. Step 1 of the agreed plan (2026-10-21: finish local work, then an Azure dev env on free tiers with Stripe test
-   mode, domain/company/live keys only before launch): holidays + reminder closing time done; still open are the
-   user's minor UI points (not yet given) and draft legal pages.
+- .NET tests: `DOCKER_API_VERSION=1.43 dotnet test` with Docker Desktop running (`open -a Docker`). MTP runner;
+  filter with `-- --filter-class <FullName>`. TreatWarningsAsErrors + NuGet audit as errors (transitive pin of
+  `System.Security.Cryptography.Pkcs` in Directory.Packages.props).
+- After API contract changes: build the API, then `npm run generate:api`; CI fails on uncommitted generated files.
+- API and job wrap the run in try/catch and return 1 – an unhandled exception after host start hangs the process.
+  The API rethrows only under WebApplicationFactory (`Testing`, flag read **before** the try: the host is disposed
+  by the catch).
+- Local run: SQL container `isk-battle-sql` :1433, API :5080 `--launch-profile http`, Vite :5173 proxies `/api`.
+  `Dev__Now=<ISO>` shifts the clock in Development. Local DB players: anna, bertil, cecilia, david ("Veckoligan"),
+  `ivarer` ("hejs liga"), all Weekly. UI checks: Playwright from scratchpad with
+  `~/Library/Caches/ms-playwright/chromium-1117` as executablePath. No `timeout` or `sqlcmd` on this Mac
+  (use `docker exec isk-battle-sql /opt/mssql-tools18/bin/sqlcmd -C …` locally).
+- Repo `nuget.config` clears sources (global config has an unreachable SkiStar feed).
