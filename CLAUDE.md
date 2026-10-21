@@ -32,7 +32,7 @@ leagues. Self-reported, trust-based, no prizes, no penalties; nothing may encour
 | 5 Frontend | done (`5026f46`) |
 | 6 Email + reminders | done (`792cafc`) |
 | 7 Payments (Stripe) | done (`df844bc`) |
-| 8 Infrastructure (Bicep, deploy, domains) | **next – blocked on user** (Dockerfile already done) |
+| 8 Infrastructure (Bicep, deploy, domains) | **in progress** – code done (`infra/`, deploy workflow); provisioning not started |
 | 9 Legal pages + launch checklist | not started (legal pages are placeholders) |
 
 Work after milestone 7 (2026-10-05):
@@ -73,6 +73,10 @@ src/IskBattle.Api             Minimal API. Auth/{CurrentUser upsert filter, DevA
 src/IskBattle.Jobs            Console (generic host): `reminders` -> ReminderJob; Container Apps Job on UTC cron
                               0 6,7 * * * and 0 18,19 28-30 12 *. ReminderPolicy.IsRunTime gates before any DB access.
 Dockerfile                    One image: /app/api (default entrypoint, :8080) + /app/jobs; job overrides the command
+infra/                        Bicep, subscription scope: main.bicep (RG, budget) → resources.bicep (monitoring,
+                              identities, KV, SQL free offer, ACS, CAE, SWA) → apps.bicep (API + jobs, pass 2 via
+                              ISK_DEPLOY_APPS). main.bicepparam reads personal values from ISK_* env vars
+.github/workflows/deploy.yml  After CI on main: GHCR image → caj-migrate → API + reminder jobs → SWA upload
 src/web                       Vite + React 19 + TS 5.9 + React Router 7 + TanStack Query, PWA, openapi-fetch typed
                               client (npm run generate:api), hooks in src/hooks/queries.ts, strings in
                               src/i18n/sv.json via t(), screens in src/pages
@@ -133,22 +137,22 @@ tests/IskBattle.Api.Tests     Testcontainers SQL Server (assembly fixture), WebA
   `~/Library/Caches/ms-playwright/chromium-1117`, pass it as `executablePath`).
 - The local DB has test players anna, bertil, cecilia, david (Weekly league "Veckoligan") and the user's own
   `ivarer` (Weekly league "hejs liga"). A Weekly-only player can only check in Fri 22:30 – Sun 23:59.
+- Transitive pin in `Directory.Packages.props` (`CentralPackageTransitivePinningEnabled`): SqlClient's
+  `System.Security.Cryptography.Pkcs` 9.0.11 has advisories, and NuGet audit warnings are errors.
+- The API (like the job) catches exceptions around `RunAsync` and returns 1: otherwise a failed startup validation
+  leaves the process hanging in the container.
 - `Dockerfile`: publish uses `-p:OpenApiGenerateDocuments=false` (web client not in the build context); the job
   catches exceptions and returns 1 because an unhandled exception after `host.StartAsync` hangs the process.
 
 ## Next steps
 
-1. The user is doing the Azure/Entra/domain/Stripe setup with Claude chat and will come back with a checklist of IDs,
-   names and URLs (secrets go straight into Key Vault, never into chat). Then milestone 8 – Bicep for SWA, Container Apps (min replicas 0), Azure SQL free
-   offer (auto-pause at limit in dev, "continue using" before launch; Basic 5 DTU fallback), Container Apps Job
-   (cron, same image), ACS Email + domain (SPF/DKIM/DMARC), Key Vault (Stripe keys, webhook secret,
-   `Email:UnsubscribeKey`), App Insights, managed identity for SQL/Key Vault/ACS, deploy workflows, migrations in
-   deploy, CORS for the app origin, custom domains. Also an Entra External ID SPA + API app registration
-   (`VITE_ENTRA_*`, `Auth:Authority/Audience`); the API's access token **must include the `email` optional claim**
-   (and `oid`), otherwise no email is ever sent. Container Apps Job: cron `0 6,7 * * *` + `0 18,19 28-30 12 *`
-   (UTC), command `dotnet /app/jobs/IskBattle.Jobs.dll reminders`, retry limit > 0. Images to GHCR, GitHub Actions
-   with OIDC. Application Insights is not wired into the API or the job yet (the old Functions app had it).
-   Docker Desktop must be running for the .NET tests.
+1. **Milestone 8 provisioning** (plan agreed 2026-10-21: one environment that becomes prod, Sweden Central, GHCR
+   public image, Stripe test mode, Azure default URLs until launch). Code is done; follow README "Deploy".
+   Personal subscription `f15c93af-49fc-4a88-b904-693e0c7947c9` (tenant `ivarelfvingmail.onmicrosoft.com`). The
+   same `az` login also sees ~30 SkiStar work subscriptions (tenant `a7624529-…`): **always pass
+   `--subscription`**, never touch the work tenant. Waiting on the user for: personal GitHub repo + push, Entra
+   External ID tenant (email OTP user flow), Stripe test account. Show each `az` command before running it.
+   Not yet verified in Azure: everything (Bicep only compiled; what-if not run).
 2. Milestone 9 – Swedish terms and privacy policy (data stored: email, display name, YTD %, purchases; 7-year
    bookkeeping retention), company details in footer, Stripe live keys.
 3. Step 1 of the agreed plan (2026-10-21: finish local work, then an Azure dev env on free tiers with Stripe test

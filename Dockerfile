@@ -1,6 +1,6 @@
 # One image for the API and the scheduled jobs (ARCHITECTURE.md §8).
 #   API (default):     dotnet /app/api/IskBattle.Api.dll
-#   Reminder job:      dotnet /app/jobs/IskBattle.Jobs.dll reminders   (Container Apps Job command override)
+#   Jobs:              dotnet /app/jobs/IskBattle.Jobs.dll reminders|migrate   (Container Apps Job command override)
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 

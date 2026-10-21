@@ -1,0 +1,131 @@
+name: Deploy
+
+# Rolls out a commit on main after CI passed: image to GHCR → migrations (caj-migrate) → API and reminder jobs →
+# web app to Static Web Apps. Infrastructure itself is deployed from a developer machine (infra/main.bicep).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-iskbattle
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  image:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}:${SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.name.outputs.image }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  azure:
+    needs: image
+    # Skipped until the Azure deploy identity is configured (README "Deploy").
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      IMAGE: ${{ needs.image.outputs.image }}
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Migrate the database
+        run: |
+          az containerapp job update -g "$RESOURCE_GROUP" -n caj-migrate --image "$IMAGE" --output none
+          execution=$(az containerapp job start -g "$RESOURCE_GROUP" -n caj-migrate --query name -o tsv)
+          echo "Started $execution"
+          # The free-offer database may be paused; resuming takes up to a minute.
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show -g "$RESOURCE_GROUP" -n caj-migrate \
+              --job-execution-name "$execution" --query properties.status -o tsv)
+            echo "Status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for the migration" && exit 1
+
+      - name: Roll out the API and the reminder jobs
+        run: |
+          az containerapp update -g "$RESOURCE_GROUP" -n ca-iskbattle-api --image "$IMAGE" --output none
+          for job in caj-reminders-morning caj-reminders-seasonend; do
+            az containerapp job update -g "$RESOURCE_GROUP" -n "$job" --image "$IMAGE" --output none
+          done
+
+  web:
+    needs: azure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          VITE_AUTH_MODE: entra
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_ENTRA_CLIENT_ID: ${{ vars.VITE_ENTRA_CLIENT_ID }}
+          VITE_ENTRA_AUTHORITY: ${{ vars.VITE_ENTRA_AUTHORITY }}
+          VITE_API_SCOPE: ${{ vars.VITE_API_SCOPE }}
+
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          action: upload
+          app_location: src/web/dist
+          skip_app_build: true
+          skip_api_build: true

@@ -270,19 +270,37 @@ Check-in windows (GAME-DESIGN.md §4a) live in `Domain/CheckIns/CheckInWindows`:
 
 ## 10. Hosting and environments
 
+Resource group `rg-iskbattle` in **Sweden Central** (`infra/main.bicep`; deploy steps in README "Deploy"):
+
 | Resource | Tier |
 |---|---|
-| Static Web Apps | Free |
-| Container Apps environment + app | Consumption, min replicas 0 |
-| Azure SQL Database | Free offer (auto-pause) |
-| Container Apps Job (reminders) | Consumption, cron trigger, same environment and image as the API |
-| Communication Services + Email | Pay per email |
-| Key Vault | Standard (secrets: Stripe keys, webhook secret, HMAC key) |
-| Application Insights | Pay-as-you-go (within free ingestion) |
+| Static Web App `swa-iskbattle` | Free (resource in West Europe, content on the global CDN) |
+| Container Apps environment `cae-iskbattle` + app `ca-iskbattle-api` | Consumption, 0.25 vCPU / 0.5 GiB, min 0, max 1 replica |
+| Container Apps Jobs | `caj-reminders-morning` (`0 6,7 * * *`), `caj-reminders-seasonend` (`0 18,19 28-30 12 *`), `caj-migrate` (manual); same image |
+| Azure SQL `sql-iskbattle-<suffix>` / `iskbattle` | Free offer (GP serverless, auto-pause), Entra-only auth |
+| Managed identity `id-iskbattle` | Runtime identity of the app and jobs: SQL user, Key Vault Secrets User, ACS |
+| Managed identity `id-iskbattle-github` | GitHub Actions OIDC (main branch), Contributor on the resource group |
+| Communication Services + Email | Pay per email; Azure-managed sender domain until launch |
+| Key Vault `kv-iskbattle-<suffix>` | Standard, RBAC (secrets: `Stripe--SecretKey`, `Stripe--WebhookSecret`, `Email--UnsubscribeKey`) |
+| Log Analytics + Application Insights | Workspace-based, daily cap 0.15 GB (inside the free 5 GB/month) |
+| Budget `budget-iskbattle` | Subscription budget with email alerts (50 %, 100 %, forecast 100 %) |
 
+- **Two Bicep passes:** pass 1 creates the shared resources; pass 2 (`deployApps`) adds the Container App and Jobs,
+  whose Key Vault secret references need the secrets to exist. Bicep owns configuration; the deploy workflow only
+  changes images, so an infrastructure redeploy must pass the running image.
+- **Deploy workflow** (after CI on `main`): image to GHCR (public package, tag = commit SHA) → `caj-migrate` with
+  the new image, waiting for success → API and reminder jobs to the new image → web build with `VITE_*` repo
+  variables → Static Web Apps upload. Migrations run inside Azure with the managed identity, so SQL never needs a
+  firewall opening for GitHub runners.
+- **Configuration:** environment variables on the app and jobs (`ConnectionStrings__Sql` with `Authentication=Active
+  Directory Managed Identity`, `Email__*`, `Links__*`, `Cors__AllowedOrigins__*`, `Auth__*`), secrets as Key Vault
+  references, `AZURE_CLIENT_ID` so `DefaultAzureCredential` (ACS) uses the user-assigned identity.
+  `APPLICATIONINSIGHTS_CONNECTION_STRING` turns on Azure Monitor OpenTelemetry (API: `UseAzureMonitor`, job:
+  exporter); unset locally.
+- The API and the job catch startup/run failures and exit with code 1 (an unhandled exception after the host starts
+  leaves the process hanging), so Container Apps restarts or retries them.
 - Custom domains: `app.<domain>` (SWA) and `api.<domain>` (Container Apps). Explicit CORS on the API allowing only the app origin.
 - **Local development:** Vite dev server proxies `/api` to the local API, so there is no CORS locally and phones on the LAN work through the proxy (avoids the hub-URL/CORS issue from Beerio Kart). SQL Server in Docker, Stripe CLI for webhooks.
-- The API uses managed identity for SQL and Key Vault.
 - The frontend must tolerate a slow first request after SQL auto-pause (loading state, one retry).
 - **SQL free offer limit:** "behavior when free limit reached" is set to **auto-pause** during development. Before launch it must be switched to **"continue using the database"** (billed beyond the free amount), so the app doesn't go offline mid-month.
 - **SQL fallback:** if monthly SQL cost exceeds roughly 100 kr once real users arrive, move to **Azure SQL Basic (5 DTU, 2 GB)** at about 50 kr/month, which is fixed-price and never pauses.

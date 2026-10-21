@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -18,6 +19,9 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddDevClock(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+// Application Insights in Azure; the connection string is set on the Container App only.
+if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -80,6 +84,20 @@ api.MapCheckInEndpoints();
 api.MapLeagueEndpoints();
 api.MapCheckoutEndpoint();
 
-app.Run();
+// Read up front: the host is disposed by the time a startup failure reaches the catch below.
+var underTestFactory = app.Environment.IsEnvironment("Testing");
+try
+{
+    await app.RunAsync();
+    return 0;
+}
+catch (Exception) when (!underTestFactory)
+{
+    // The host has already logged the failure ("Hosting failed to start") and been disposed. Returning instead of
+    // rethrowing: an unhandled exception leaves the console lifetime waiting, so the process never exits and
+    // Container Apps never restarts it. WebApplicationFactory (Testing) reports startup failures through the
+    // exception instead and has no console lifetime.
+    return 1;
+}
 
 public partial class Program;
